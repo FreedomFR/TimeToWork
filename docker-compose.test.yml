@@ -1,0 +1,42 @@
+services:
+  backend-test:
+    image: node:20-alpine
+    working_dir: /app
+    volumes:
+      - ./backend:/app
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-timetowork}:${POSTGRES_PASSWORD:-timetowork}@db:5432/timetowork_test
+      JWT_SECRET: test-secret
+      APP_URL: http://localhost:8080
+      DEV_MODE: "false"
+      PORT: 4000
+    command: sh -c "apk add --no-cache openssl >/dev/null && npm install && npx prisma generate && npm test"
+
+  # A frontend build whose API calls target the backend by its internal
+  # Docker network hostname, so it also works from a browser running inside
+  # another container (the production build instead targets localhost,
+  # which is correct for a browser on the host machine, but unreachable
+  # from inside the "e2e" container).
+  frontend-test:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: http://backend:4000/api
+    depends_on:
+      - backend
+
+  e2e:
+    image: mcr.microsoft.com/playwright:v1.48.0-jammy
+    working_dir: /app
+    volumes:
+      - ./e2e:/app
+    depends_on:
+      - frontend-test
+      - backend
+    environment:
+      BASE_URL: http://frontend-test
+      API_URL: http://backend:4000
+    command: sh -c "npm install && npm test"
