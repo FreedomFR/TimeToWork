@@ -1,5 +1,5 @@
 /**
- * Authentication: register / login, current user, password reset by email,
+ * Authentication: register / login, current user, password change and reset by email,
  * and the DEV_MODE passwordless login used during development.
  */
 import { Router } from "express";
@@ -16,6 +16,7 @@ const RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
 const BCRYPT_ROUNDS = 10;
 // Same message for "unknown email" and "wrong password" so accounts can't be probed.
 const INVALID_CREDENTIALS = "Email ou mot de passe incorrect";
+const WRONG_CURRENT_PASSWORD = "Mot de passe actuel incorrect";
 
 /** Read lazily (not cached at module load) so it can be toggled at runtime in tests. */
 function isDevMode() {
@@ -86,6 +87,40 @@ router.get("/me", requireAuth, async (req: AuthRequest, res) => {
   const user = await prisma.user.findUnique({ where: { id: req.userId! } });
   if (!user) return notFound(res, "User not found");
   res.json(publicUser(user));
+});
+
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1),
+  newPassword: z.string().min(6),
+});
+
+// Change the password of the signed-in user. The current password must be
+// re-entered so a stolen session token alone can't take over the account.
+router.post("/change-password", requireAuth, async (req: AuthRequest, res) => {
+  const data = parseBody(changePasswordSchema, req.body, res);
+  if (!data) return;
+
+  const user = await prisma.user.findUnique({ where: { id: req.userId! } });
+  if (!user) return notFound(res, "User not found");
+
+  // Answers 400, not 401: the frontend treats any 401 as "session expired" and logs out
+  if (!(await bcrypt.compare(data.currentPassword, user.password))) {
+    return res.status(400).json({ error: WRONG_CURRENT_PASSWORD });
+  }
+  if (data.newPassword === data.currentPassword) {
+    return res.status(400).json({ error: "Le nouveau mot de passe doit être différent de l'actuel" });
+  }
+
+  // Also cancels any pending reset link: it was issued for the old password
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      password: await bcrypt.hash(data.newPassword, BCRYPT_ROUNDS),
+      resetTokenHash: null,
+      resetTokenExpiresAt: null,
+    },
+  });
+  res.json({ message: "Mot de passe mis à jour" });
 });
 
 // ─── Password reset ────────────────────────────────────────────────────────

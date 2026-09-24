@@ -31,6 +31,7 @@ Crée un compte depuis l'écran d'inscription, puis crée tes projets/clients et
 - Tableau de bord : temps total, projet/client principal, histogramme par jour, répartition par projet, activités les plus suivies
 - Rapports (Résumé, Détaillé, Hebdomadaire) avec filtres, plage de dates personnalisée, arrondi au quart d'heure
 - Export des rapports en CSV, Excel, PDF ou JSON (contenu et colonnes au choix)
+- Changement de mot de passe une fois connecté (page "Mon compte")
 - Réinitialisation du mot de passe par email ("Mot de passe oublié ?" sur l'écran de connexion)
 
 ## Réinitialisation du mot de passe
@@ -89,13 +90,13 @@ Nécessite une instance PostgreSQL locale et un fichier `.env` dans `backend/` a
 
 Le projet a deux suites de tests, à lancer après avoir démarré la stack (`docker compose up -d`) :
 
-**Backend (71 tests)** — tests d'intégration (Vitest + Supertest) qui couvrent auth, projets, clients, tags, entrées de temps et rapports, sur une base Postgres de test dédiée (`timetowork_test`, créée et migrée automatiquement) :
+**Backend (77 tests)** — tests d'intégration (Vitest + Supertest) qui couvrent auth, projets, clients, tags, entrées de temps et rapports, sur une base Postgres de test dédiée (`timetowork_test`, créée et migrée automatiquement) :
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.test.yml run --rm backend-test
 ```
 
-**End-to-end (48 tests)** — Playwright, qui pilote un vrai navigateur contre l'application complète (inscription, connexion, minuteur, saisie manuelle, tags, projets/clients, édition en ligne, tableau de bord, rapports, export, mot de passe oublié, mode DEV) :
+**End-to-end (52 tests)** — Playwright, qui pilote un vrai navigateur contre l'application complète (inscription, connexion, minuteur, saisie manuelle, tags, projets/clients, édition en ligne, tableau de bord, rapports, export, mot de passe oublié, mode DEV) :
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.test.yml build frontend-test

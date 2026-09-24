@@ -7,6 +7,7 @@ const links = [
   { to: "/reports", label: "Rapports", icon: "📊" },
   { to: "/projects", label: "Projets", icon: "📁" },
   { to: "/clients", label: "Clients", icon: "👤" },
+  { to: "/account", label: "Mon compte", icon: "⚙️" },
 ];
 
 /** Left navigation with the user's name and the logout button. */

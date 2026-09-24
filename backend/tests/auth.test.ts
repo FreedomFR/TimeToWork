@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { app, request, registerUser, uniqueEmail } from "./helpers";
+import { app, authed, request, registerUser, uniqueEmail } from "./helpers";
 import { sendPasswordResetEmail } from "../src/lib/mailer";
 import { prisma } from "../src/lib/prisma";
 
@@ -81,6 +81,73 @@ describe("auth: me", () => {
   it("rejects an invalid token", async () => {
     const res = await request(app).get("/api/auth/me").set("Authorization", "Bearer not-a-real-token");
     expect(res.status).toBe(401);
+  });
+});
+
+describe("auth: change-password", () => {
+  it("changes the password when the current one is correct", async () => {
+    const { token, user } = await registerUser({ password: "old-password" });
+    const res = await authed(token)
+      .post("/api/auth/change-password")
+      .send({ currentPassword: "old-password", newPassword: "new-password" });
+    expect(res.status).toBe(200);
+
+    const oldLogin = await request(app).post("/api/auth/login").send({ email: user.email, password: "old-password" });
+    expect(oldLogin.status).toBe(401);
+    const newLogin = await request(app).post("/api/auth/login").send({ email: user.email, password: "new-password" });
+    expect(newLogin.status).toBe(200);
+  });
+
+  it("rejects a wrong current password without changing anything", async () => {
+    const { token, user } = await registerUser({ password: "old-password" });
+    const res = await authed(token)
+      .post("/api/auth/change-password")
+      .send({ currentPassword: "not-the-password", newPassword: "new-password" });
+
+    // 400 rather than 401: the frontend logs the user out on any 401
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe("Mot de passe actuel incorrect");
+
+    const login = await request(app).post("/api/auth/login").send({ email: user.email, password: "old-password" });
+    expect(login.status).toBe(200);
+  });
+
+  it("rejects a new password identical to the current one", async () => {
+    const { token } = await registerUser({ password: "same-password" });
+    const res = await authed(token)
+      .post("/api/auth/change-password")
+      .send({ currentPassword: "same-password", newPassword: "same-password" });
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects a new password that is too short", async () => {
+    const { token } = await registerUser({ password: "old-password" });
+    const res = await authed(token)
+      .post("/api/auth/change-password")
+      .send({ currentPassword: "old-password", newPassword: "123" });
+    expect(res.status).toBe(400);
+  });
+
+  it("requires authentication", async () => {
+    const res = await request(app)
+      .post("/api/auth/change-password")
+      .send({ currentPassword: "old-password", newPassword: "new-password" });
+    expect(res.status).toBe(401);
+  });
+
+  it("cancels a pending password-reset link", async () => {
+    const { token, user } = await registerUser({ password: "old-password" });
+    await request(app).post("/api/auth/forgot-password").send({ email: user.email });
+    const pending = await prisma.user.findUnique({ where: { email: user.email } });
+    expect(pending?.resetTokenHash).not.toBeNull();
+
+    await authed(token)
+      .post("/api/auth/change-password")
+      .send({ currentPassword: "old-password", newPassword: "new-password" });
+
+    const after = await prisma.user.findUnique({ where: { email: user.email } });
+    expect(after?.resetTokenHash).toBeNull();
+    expect(after?.resetTokenExpiresAt).toBeNull();
   });
 });
 
