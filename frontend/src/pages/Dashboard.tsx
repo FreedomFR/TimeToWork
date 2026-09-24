@@ -5,7 +5,7 @@ import { computeDashboard } from "../utils/dashboard";
 import PeriodPicker, { CustomRange } from "../components/reports/PeriodPicker";
 import DonutChart from "../components/reports/DonutChart";
 import DashboardBarChart from "../components/dashboard/DashboardBarChart";
-import { IconChevronDown } from "../components/icons";
+import ScopeBadge from "../components/ui/ScopeBadge";
 
 const TOP_OPTIONS = [5, 10, 20];
 
@@ -38,13 +38,7 @@ export default function Dashboard() {
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <h1 className="text-xl font-semibold text-gray-100">Tableau de bord</h1>
         <div className="flex items-center gap-3">
-          <span
-            title="Seules vos propres heures sont affichées"
-            className="flex items-center gap-2 px-3 py-2 text-sm rounded bg-surface border border-border text-gray-200"
-          >
-            Seulement moi
-            <IconChevronDown className="w-3.5 h-3.5 text-muted" />
-          </span>
+          <ScopeBadge />
           <PeriodPicker
             unit={unit}
             anchor={anchor}

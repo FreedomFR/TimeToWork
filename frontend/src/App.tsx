@@ -10,6 +10,7 @@ import Projects from "./pages/Projects";
 import Clients from "./pages/Clients";
 import Reports from "./pages/Reports";
 import Dashboard from "./pages/Dashboard";
+import Calendar from "./pages/Calendar";
 import Account from "./pages/Account";
 
 export default function App() {
@@ -28,6 +29,7 @@ export default function App() {
         }
       >
         <Route path="/" element={<TimeTracker />} />
+        <Route path="/calendar" element={<Calendar />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/projects" element={<Projects />} />
         <Route path="/clients" element={<Clients />} />

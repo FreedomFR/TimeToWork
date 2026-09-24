@@ -164,3 +164,19 @@ export function IconDownload({ className = base }: IconProps) {
     </svg>
   );
 }
+
+export function IconZoomIn({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} stroke="currentColor" strokeWidth="2">
+      <path d="M12 5v14M5 12h14" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export function IconZoomOut({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} stroke="currentColor" strokeWidth="2">
+      <path d="M5 12h14" strokeLinecap="round" />
+    </svg>
+  );
+}

@@ -3,6 +3,7 @@ import { useAuth } from "../context/AuthContext";
 
 const links = [
   { to: "/", label: "Suivi du temps", icon: "⏱" },
+  { to: "/calendar", label: "Calendrier", icon: "🗓" },
   { to: "/dashboard", label: "Tableau de bord", icon: "🏠" },
   { to: "/reports", label: "Rapports", icon: "📊" },
   { to: "/projects", label: "Projets", icon: "📁" },

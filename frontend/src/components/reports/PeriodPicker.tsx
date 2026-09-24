@@ -23,6 +23,8 @@ interface Props {
   onChangeCustom: (range: CustomRange) => void;
   // Weekly report: always exactly one Monday–Sunday week, shown as a date range.
   weekOnly?: boolean;
+  // Restricts the presets to these units and hides the custom range (e.g. the calendar: only weeks, or only days).
+  allowedUnits?: PeriodUnit[];
 }
 
 const PRESETS: { label: string; unit: PeriodUnit; offset: number }[] = [
@@ -47,6 +49,7 @@ export default function PeriodPicker({
   onChangePreset,
   onChangeCustom,
   weekOnly = false,
+  allowedUnits,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [showCustom, setShowCustom] = useState(false);
@@ -80,7 +83,9 @@ export default function PeriodPicker({
     : customRange
       ? formatDateRangeLabel(customRange.from, customRange.to)
       : formatPeriodLabel(unit, anchor);
-  const presets = weekOnly ? PRESETS.filter((p) => p.unit === "week") : PRESETS;
+  const presetUnits = weekOnly ? (["week"] as PeriodUnit[]) : allowedUnits;
+  const presets = presetUnits ? PRESETS.filter((p) => presetUnits.includes(p.unit)) : PRESETS;
+  const canPickCustomRange = !presetUnits;
 
   return (
     <div className="flex items-center gap-1">
@@ -112,7 +117,7 @@ export default function PeriodPicker({
                     {p.label}
                   </button>
                 ))}
-                {!weekOnly && (
+                {canPickCustomRange && (
                   <button
                     onClick={openCustom}
                     className="w-full text-left px-3 py-2 text-sm text-accent hover:bg-surfaceAlt border-t border-border"
