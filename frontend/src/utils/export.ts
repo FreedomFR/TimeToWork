@@ -1,5 +1,11 @@
+/**
+ * Report export: builds a table (detailed rows, or per-project / per-day totals)
+ * from time entries and serializes it to CSV, Excel, JSON, or a printable PDF.
+ */
 import { TimeEntry } from "../api/types";
-import { dateStrOf, durationSeconds, formatClock, formatDuration, roundToQuarterHour } from "./time";
+import { entrySeconds } from "./reportData";
+import { dateStrOf, formatClock, formatDuration } from "./time";
+import { NO_PROJECT_LABEL } from "./constants";
 import { buildXlsx } from "./xlsx";
 
 export type ExportFormat = "csv" | "xlsx" | "pdf" | "json";
@@ -66,11 +72,9 @@ export interface BuildOptions {
 
 const decimalHours = (seconds: number) => Math.round((seconds / 3600) * 100) / 100;
 
+/** Builds the exported table for the chosen content type from the (already filtered) entries. */
 export function buildTable(content: ExportContent, entries: TimeEntry[], opts: BuildOptions): Table {
-  const secondsOf = (e: TimeEntry) => {
-    const s = durationSeconds(e.start, e.end);
-    return opts.rounded ? roundToQuarterHour(s) : s;
-  };
+  const secondsOf = (e: TimeEntry) => entrySeconds(e, opts.rounded);
 
   if (content === "detailed") {
     const columns = DETAIL_COLUMNS.filter((c) => opts.columns.includes(c.key));
@@ -112,7 +116,7 @@ export function buildTable(content: ExportContent, entries: TimeEntry[], opts: B
     for (const e of entries) {
       const key = e.projectId || "none";
       const g = groups.get(key) || {
-        project: e.project?.name || "Aucun projet",
+        project: e.project?.name || NO_PROJECT_LABEL,
         client: e.project?.client?.name || "",
         count: 0,
         seconds: 0,
@@ -153,12 +157,14 @@ export function buildTable(content: ExportContent, entries: TimeEntry[], opts: B
   };
 }
 
+/** UTF-8 CSV (with BOM so Excel detects the encoding), every cell quoted, comma-separated. */
 export function toCsv(table: Table): string {
   const quote = (cell: Cell) => `"${String(cell).replace(/"/g, '""')}"`;
   const lines = [table.headers, ...table.rows].map((r) => r.map(quote).join(","));
   return "﻿" + lines.join("\n");
 }
 
+/** Array of objects keyed by column header. */
 export function toJson(table: Table): string {
   const objects = table.rows.map((row) =>
     Object.fromEntries(table.headers.map((h, i) => [h, row[i]]))
@@ -213,6 +219,7 @@ export function printAsPdf(table: Table, title: string, subtitle: string) {
   }, 250);
 }
 
+/** Triggers a browser download of `blob` under `filename`. */
 export function downloadBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -224,10 +231,12 @@ export function downloadBlob(blob: Blob, filename: string) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+/** e.g. `rapport-detaille_2026-09-01_2026-09-30.csv`. */
 export function exportFilename(content: ExportContent, format: ExportFormat, from: Date, to: Date): string {
   return `rapport-${CONTENT_SLUGS[content]}_${dateStrOf(from.toISOString())}_${dateStrOf(to.toISOString())}.${FORMAT_EXTENSIONS[format]}`;
 }
 
+/** Serializes `table` in the chosen format and downloads it (PDF opens the print dialog instead). */
 export function exportTable(
   table: Table,
   format: ExportFormat,

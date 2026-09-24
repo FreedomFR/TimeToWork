@@ -9,6 +9,7 @@ const links = [
   { to: "/clients", label: "Clients", icon: "👤" },
 ];
 
+/** Left navigation with the user's name and the logout button. */
 export default function Sidebar() {
   const { user, logout } = useAuth();
 

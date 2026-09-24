@@ -1,14 +1,13 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import { Client } from "../api/types";
+import ManagedRow from "../components/ui/ManagedRow";
+import { CARD_CLASS, INLINE_INPUT_CLASS, INPUT_CLASS, PRIMARY_BUTTON_CLASS } from "../components/ui/styles";
 
-function EditClientPanel({
-  client,
-  onUpdate,
-}: {
-  client: Client;
-  onUpdate: (id: string, patch: Partial<{ name: string }>) => void;
-}) {
+type ClientPatch = Partial<Pick<Client, "name">>;
+
+/** Inline rename panel shown under an expanded client row. */
+function EditClientPanel({ client, onUpdate }: { client: Client; onUpdate: (id: string, patch: ClientPatch) => void }) {
   const [name, setName] = useState(client.name);
 
   function commitName() {
@@ -16,19 +15,20 @@ function EditClientPanel({
   }
 
   return (
-    <div onClick={(e) => e.stopPropagation()} className="px-4 pb-3 pt-1 bg-bg/40">
+    <div className="px-4 pb-3 pt-1 bg-bg/40">
       <input
         value={name}
         onChange={(e) => setName(e.target.value)}
         onBlur={commitName}
-        onKeyDown={(e) => e.key === "Enter" && (e.currentTarget as HTMLInputElement).blur()}
+        onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
         placeholder="Nom du client"
-        className="w-full bg-surfaceAlt border-none rounded px-2 py-1.5 text-sm text-gray-200 placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent"
+        className={`w-full ${INLINE_INPUT_CLASS}`}
       />
     </div>
   );
 }
 
+/** Clients page: create, rename, archive and delete clients. */
 export default function Clients() {
   const [clients, setClients] = useState<Client[]>([]);
   const [name, setName] = useState("");
@@ -60,7 +60,7 @@ export default function Clients() {
     load();
   }
 
-  async function handleUpdate(id: string, patch: Partial<{ name: string }>) {
+  async function handleUpdate(id: string, patch: ClientPatch) {
     const res = await api.put(`/clients/${id}`, patch);
     setClients((prev) => prev.map((c) => (c.id === id ? res.data : c)));
   }
@@ -69,55 +69,36 @@ export default function Clients() {
     <div className="px-6 py-6">
       <h1 className="text-xl font-semibold text-gray-100 mb-4">Clients</h1>
 
-      <div className="bg-surface rounded-lg border border-border p-4 mb-6 flex items-end gap-3">
+      <div className={`${CARD_CLASS} p-4 mb-6 flex items-end gap-3`}>
         <div className="flex-1">
           <label className="block text-xs text-muted mb-1">Nom du client</label>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Nom du client"
-            className="w-full bg-surfaceAlt border-none rounded px-3 py-2 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-accent"
+            className={`w-full ${INPUT_CLASS}`}
           />
         </div>
-        <button
-          onClick={handleCreate}
-          className="bg-accent hover:bg-accentDark text-white text-sm font-medium px-4 py-2 rounded transition-colors"
-        >
+        <button onClick={handleCreate} className={`text-sm px-4 py-2 ${PRIMARY_BUTTON_CLASS}`}>
           + Ajouter
         </button>
       </div>
 
-      <div className="bg-surface rounded-lg border border-border">
+      <div className={CARD_CLASS}>
         {clients.map((c) => (
-          <div key={c.id} className="border-b border-border last:border-b-0">
-            <div
-              onClick={() => setExpandedId(expandedId === c.id ? null : c.id)}
-              className="flex items-center gap-3 px-4 py-3 hover:bg-surfaceAlt cursor-pointer"
-            >
-              <span className={`text-sm flex-1 ${c.archived ? "text-muted line-through" : "text-gray-200"}`}>
-                {c.name}
-              </span>
-              <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
-                <button
-                  onClick={() => toggleArchive(c)}
-                  className="text-xs text-muted hover:text-gray-200 px-2"
-                >
-                  {c.archived ? "Réactiver" : "Archiver"}
-                </button>
-                <button
-                  onClick={() => handleDelete(c.id)}
-                  className="text-xs text-red-400 hover:text-red-300 px-2"
-                >
-                  Supprimer
-                </button>
-              </div>
-            </div>
-            {expandedId === c.id && <EditClientPanel client={c} onUpdate={handleUpdate} />}
-          </div>
+          <ManagedRow
+            key={c.id}
+            name={c.name}
+            archived={c.archived}
+            expanded={expandedId === c.id}
+            onToggleExpanded={() => setExpandedId(expandedId === c.id ? null : c.id)}
+            onToggleArchive={() => toggleArchive(c)}
+            onDelete={() => handleDelete(c.id)}
+          >
+            <EditClientPanel client={c} onUpdate={handleUpdate} />
+          </ManagedRow>
         ))}
-        {clients.length === 0 && (
-          <div className="text-center text-muted text-sm py-10">Aucun client créé</div>
-        )}
+        {clients.length === 0 && <div className="text-center text-muted text-sm py-10">Aucun client créé</div>}
       </div>
     </div>
   );

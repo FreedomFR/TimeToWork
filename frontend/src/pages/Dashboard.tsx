@@ -1,6 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { api } from "../api/client";
-import { TimeEntry } from "../api/types";
+import { useMemo, useState } from "react";
+import { useTimeEntries } from "../hooks/useTimeEntries";
 import { PeriodUnit, formatDuration, periodRange } from "../utils/time";
 import { computeDashboard } from "../utils/dashboard";
 import PeriodPicker, { CustomRange } from "../components/reports/PeriodPicker";
@@ -10,36 +9,23 @@ import { IconChevronDown } from "../components/icons";
 
 const TOP_OPTIONS = [5, 10, 20];
 
+/** `75` → `"75,00%"` (French decimal comma). */
 function formatPercent(p: number): string {
   return `${p.toFixed(2).replace(".", ",")}%`;
 }
 
+/**
+ * Dashboard (Clockify-style): KPIs, per-day bar chart, per-project breakdown and
+ * the most tracked activities for the selected period (this week by default).
+ */
 export default function Dashboard() {
   const [unit, setUnit] = useState<PeriodUnit>("week");
   const [anchor, setAnchor] = useState(new Date());
   const [customRange, setCustomRange] = useState<CustomRange | null>(null);
   const [topN, setTopN] = useState(10);
-  const [entries, setEntries] = useState<TimeEntry[]>([]);
-  const [loading, setLoading] = useState(true);
 
   const [from, to] = customRange ? [customRange.from, customRange.to] : periodRange(unit, anchor);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    api
-      .get("/time-entries", { params: { from: from.toISOString(), to: to.toISOString() } })
-      .then((res) => {
-        if (!cancelled) setEntries(res.data);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [from.getTime(), to.getTime()]);
+  const { entries, loading } = useTimeEntries(from, to);
 
   const stats = useMemo(
     () => computeDashboard(entries, from, to),
@@ -170,6 +156,7 @@ export default function Dashboard() {
   );
 }
 
+/** One headline figure of the top strip. */
 function Kpi({ label, value, testId, mono }: { label: string; value: string; testId: string; mono?: boolean }) {
   return (
     <div className="px-6 py-4 text-center sm:border-r border-border last:border-r-0">

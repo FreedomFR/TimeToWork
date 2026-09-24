@@ -31,6 +31,10 @@ const FORMATS: { value: ExportFormat; label: string; hint: string }[] = [
   { value: "json", label: "JSON", hint: "Données structurées pour les développeurs" },
 ];
 
+/**
+ * Export modal: choose the content (detailed / by project / by day), the columns for the
+ * detailed content, and the file format. Closes on Escape.
+ */
 export default function ExportDialog({
   open,
   onClose,

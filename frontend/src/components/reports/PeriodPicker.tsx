@@ -1,10 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
+import { useClickOutside } from "../../hooks/useClickOutside";
 import {
   PeriodUnit,
   formatDateRangeLabel,
   formatPeriodLabel,
   periodRange,
   shiftPeriod,
+  toDateStr,
 } from "../../utils/time";
 import { IconCalendar, IconChevronDown, IconChevronLeft, IconChevronRight } from "../icons";
 
@@ -33,11 +35,11 @@ const PRESETS: { label: string; unit: PeriodUnit; offset: number }[] = [
   { label: "Cette année", unit: "year", offset: 0 },
 ];
 
-function toInputDate(d: Date): string {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
-
+/**
+ * Period dropdown (presets + custom range) with previous/next arrows.
+ * Emits either a preset (`onChangePreset`) or an explicit range (`onChangeCustom`);
+ * the parent owns the state. In `weekOnly` mode it always represents one week.
+ */
 export default function PeriodPicker({
   unit,
   anchor,
@@ -48,24 +50,18 @@ export default function PeriodPicker({
 }: Props) {
   const [open, setOpen] = useState(false);
   const [showCustom, setShowCustom] = useState(false);
-  const [fromDraft, setFromDraft] = useState(toInputDate(customRange?.from || anchor));
-  const [toDraft, setToDraft] = useState(toInputDate(customRange?.to || anchor));
+  const [fromDraft, setFromDraft] = useState(toDateStr(customRange?.from || anchor));
+  const [toDraft, setToDraft] = useState(toDateStr(customRange?.to || anchor));
   const ref = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    function onClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-        setShowCustom(false);
-      }
-    }
-    document.addEventListener("mousedown", onClick);
-    return () => document.removeEventListener("mousedown", onClick);
-  }, []);
+  useClickOutside(ref, () => {
+    setOpen(false);
+    setShowCustom(false);
+  });
 
   function openCustom() {
-    setFromDraft(toInputDate(customRange?.from || anchor));
-    setToDraft(toInputDate(customRange?.to || anchor));
+    setFromDraft(toDateStr(customRange?.from || anchor));
+    setToDraft(toDateStr(customRange?.to || anchor));
     setShowCustom(true);
   }
 

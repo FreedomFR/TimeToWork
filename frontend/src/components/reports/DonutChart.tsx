@@ -11,6 +11,7 @@ interface Props {
   size?: number;
 }
 
+/** Donut chart of time shares (one arc per segment) with the total duration in the middle. */
 export default function DonutChart({ segments, totalSeconds, size = 220 }: Props) {
   const radius = (size * 80) / 220;
   const strokeWidth = (size * 34) / 220;

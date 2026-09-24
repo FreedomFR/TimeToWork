@@ -9,6 +9,7 @@ const CHART_HEIGHT = 240;
 // Beyond this many bars the value above each bar no longer fits and moves to a tooltip.
 const MAX_LABELLED_BARS = 14;
 
+/** Stacked bar chart for the dashboard: value above each bar, hour gridlines, one label per bucket. */
 export default function DashboardBarChart({ buckets }: Props) {
   const maxSeconds = Math.max(0, ...buckets.map((b) => b.totalSeconds));
   const maxHours = Math.max(1, Math.ceil(maxSeconds / 3600));

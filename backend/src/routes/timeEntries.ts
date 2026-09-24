@@ -1,42 +1,53 @@
+/**
+ * Time entries: listing, timer start/stop, manual entries, edit and delete.
+ * An entry with `end === null` is the currently running timer.
+ */
 import { Router } from "express";
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "../lib/prisma";
+import { notFound, parseBody, startRangeFilter } from "../lib/http";
 import { requireAuth, AuthRequest } from "../middleware/auth";
 
 const router = Router();
 router.use(requireAuth);
 
+/** Relations returned with every entry: its project (with client) and its tags. */
 const include = {
   project: { include: { client: true } },
   tags: { include: { tag: true } },
-};
+} satisfies Prisma.TimeEntryInclude;
 
-function serialize(entry: any) {
-  return {
-    ...entry,
-    tags: entry.tags.map((t: any) => t.tag),
-  };
+type EntryWithRelations = Prisma.TimeEntryGetPayload<{ include: typeof include }>;
+
+/** Flattens the `TimeEntryTag` join rows so the API returns `tags: Tag[]`. */
+function serialize(entry: EntryWithRelations) {
+  return { ...entry, tags: entry.tags.map((link) => link.tag) };
 }
 
-// List entries, optionally filtered by date range
+/** Join rows to create when attaching `tagIds` to an entry. */
+function tagLinks(tagIds: string[]) {
+  return { create: tagIds.map((tagId) => ({ tagId })) };
+}
+
+/** Finds an entry by id, scoped to the current user. */
+function findOwnEntry(id: string, userId: string) {
+  return prisma.timeEntry.findFirst({ where: { id, userId } });
+}
+
+// List entries, optionally restricted to those starting within [from, to]
 router.get("/", async (req: AuthRequest, res) => {
   const { from, to } = req.query as { from?: string; to?: string };
-  const where: any = { userId: req.userId! };
-  if (from || to) {
-    where.start = {};
-    if (from) where.start.gte = new Date(from);
-    if (to) where.start.lte = new Date(to);
-  }
 
   const entries = await prisma.timeEntry.findMany({
-    where,
+    where: { userId: req.userId!, start: startRangeFilter(from, to) },
     include,
     orderBy: { start: "desc" },
   });
   res.json(entries.map(serialize));
 });
 
-// Currently running entry (end === null)
+// Currently running entry, or null
 router.get("/current", async (req: AuthRequest, res) => {
   const entry = await prisma.timeEntry.findFirst({
     where: { userId: req.userId!, end: null },
@@ -46,18 +57,22 @@ router.get("/current", async (req: AuthRequest, res) => {
   res.json(entry ? serialize(entry) : null);
 });
 
-const startSchema = z.object({
+/** Fields shared by the timer-start and manual-entry payloads. */
+const entryFields = {
   description: z.string().optional().default(""),
   projectId: z.string().uuid().nullable().optional(),
   tagIds: z.array(z.string().uuid()).optional().default([]),
   billable: z.boolean().optional().default(false),
-});
+};
+
+const startSchema = z.object(entryFields);
 
 // Start a new timer (stops any currently running one first)
 router.post("/start", async (req: AuthRequest, res) => {
-  const parsed = startSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  const data = parseBody(startSchema, req.body, res);
+  if (!data) return;
 
+  // Only one timer may run at a time
   const running = await prisma.timeEntry.findFirst({
     where: { userId: req.userId!, end: null },
   });
@@ -70,26 +85,22 @@ router.post("/start", async (req: AuthRequest, res) => {
 
   const entry = await prisma.timeEntry.create({
     data: {
-      description: parsed.data.description,
-      projectId: parsed.data.projectId || null,
-      billable: parsed.data.billable,
+      description: data.description,
+      projectId: data.projectId || null,
+      billable: data.billable,
       start: new Date(),
       userId: req.userId!,
-      tags: {
-        create: parsed.data.tagIds.map((tagId) => ({ tagId })),
-      },
+      tags: tagLinks(data.tagIds),
     },
     include,
   });
   res.status(201).json(serialize(entry));
 });
 
-// Stop the currently running timer
+// Stop a running timer
 router.post("/:id/stop", async (req: AuthRequest, res) => {
-  const entry = await prisma.timeEntry.findFirst({
-    where: { id: req.params.id, userId: req.userId! },
-  });
-  if (!entry) return res.status(404).json({ error: "Not found" });
+  const entry = await findOwnEntry(req.params.id, req.userId!);
+  if (!entry) return notFound(res);
 
   const updated = await prisma.timeEntry.update({
     where: { id: entry.id },
@@ -100,36 +111,32 @@ router.post("/:id/stop", async (req: AuthRequest, res) => {
 });
 
 const manualSchema = z.object({
-  description: z.string().optional().default(""),
-  projectId: z.string().uuid().nullable().optional(),
-  tagIds: z.array(z.string().uuid()).optional().default([]),
-  billable: z.boolean().optional().default(false),
+  ...entryFields,
   start: z.string(),
   end: z.string().nullable().optional(),
 });
 
-// Create a manual (already-completed) entry
+// Create a manual entry with explicit start/end times
 router.post("/", async (req: AuthRequest, res) => {
-  const parsed = manualSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  const data = parseBody(manualSchema, req.body, res);
+  if (!data) return;
 
   const entry = await prisma.timeEntry.create({
     data: {
-      description: parsed.data.description,
-      projectId: parsed.data.projectId || null,
-      billable: parsed.data.billable,
-      start: new Date(parsed.data.start),
-      end: parsed.data.end ? new Date(parsed.data.end) : null,
+      description: data.description,
+      projectId: data.projectId || null,
+      billable: data.billable,
+      start: new Date(data.start),
+      end: data.end ? new Date(data.end) : null,
       userId: req.userId!,
-      tags: {
-        create: parsed.data.tagIds.map((tagId) => ({ tagId })),
-      },
+      tags: tagLinks(data.tagIds),
     },
     include,
   });
   res.status(201).json(serialize(entry));
 });
 
+/** Every field optional: only the ones sent are updated. */
 const updateSchema = z.object({
   description: z.string().optional(),
   projectId: z.string().uuid().nullable().optional(),
@@ -139,16 +146,15 @@ const updateSchema = z.object({
   end: z.string().nullable().optional(),
 });
 
+// Edit an entry (partial update)
 router.put("/:id", async (req: AuthRequest, res) => {
-  const existing = await prisma.timeEntry.findFirst({
-    where: { id: req.params.id, userId: req.userId! },
-  });
-  if (!existing) return res.status(404).json({ error: "Not found" });
+  const existing = await findOwnEntry(req.params.id, req.userId!);
+  if (!existing) return notFound(res);
 
-  const parsed = updateSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
-  const data = parsed.data;
+  const data = parseBody(updateSchema, req.body, res);
+  if (!data) return;
 
+  // When tags are sent they replace the previous set entirely
   if (data.tagIds) {
     await prisma.timeEntryTag.deleteMany({ where: { timeEntryId: existing.id } });
   }
@@ -157,13 +163,12 @@ router.put("/:id", async (req: AuthRequest, res) => {
     where: { id: existing.id },
     data: {
       description: data.description,
-      projectId: data.projectId !== undefined ? data.projectId : undefined,
+      projectId: data.projectId,
       billable: data.billable,
       start: data.start ? new Date(data.start) : undefined,
-      end: data.end !== undefined ? (data.end ? new Date(data.end) : null) : undefined,
-      tags: data.tagIds
-        ? { create: data.tagIds.map((tagId) => ({ tagId })) }
-        : undefined,
+      // `null` explicitly reopens the entry, `undefined` leaves it untouched
+      end: data.end === undefined ? undefined : data.end ? new Date(data.end) : null,
+      tags: data.tagIds ? tagLinks(data.tagIds) : undefined,
     },
     include,
   });
@@ -171,10 +176,8 @@ router.put("/:id", async (req: AuthRequest, res) => {
 });
 
 router.delete("/:id", async (req: AuthRequest, res) => {
-  const entry = await prisma.timeEntry.findFirst({
-    where: { id: req.params.id, userId: req.userId! },
-  });
-  if (!entry) return res.status(404).json({ error: "Not found" });
+  const entry = await findOwnEntry(req.params.id, req.userId!);
+  if (!entry) return notFound(res);
 
   await prisma.timeEntry.delete({ where: { id: entry.id } });
   res.status(204).send();

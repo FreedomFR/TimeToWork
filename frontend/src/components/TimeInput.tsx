@@ -8,6 +8,10 @@ interface Props {
   ariaLabel?: string;
 }
 
+/**
+ * Free-form clock field: accepts "0800", "8h30", "8:00"… and normalizes to "HH:mm" on blur or Enter
+ * (see `parseTimeInput`). Invalid input is discarded and the previous value kept.
+ */
 export default function TimeInput({ value, onChange, className = "", ariaLabel }: Props) {
   const [editing, setEditing] = useState<string | null>(null);
 

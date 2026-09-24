@@ -1,5 +1,6 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { Project } from "../api/types";
+import { useClickOutside } from "../hooks/useClickOutside";
 import { IconPlus } from "./icons";
 
 interface Props {
@@ -8,18 +9,13 @@ interface Props {
   onChange: (projectId: string | null) => void;
 }
 
+/** Dropdown to pick (or clear) the project of an entry. */
 export default function ProjectSelect({ projects, value, onChange }: Props) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const selected = projects.find((p) => p.id === value) || null;
 
-  useEffect(() => {
-    function onClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    }
-    document.addEventListener("mousedown", onClick);
-    return () => document.removeEventListener("mousedown", onClick);
-  }, []);
+  useClickOutside(ref, () => setOpen(false));
 
   return (
     <div className="relative shrink-0" ref={ref}>

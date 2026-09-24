@@ -1,3 +1,4 @@
+/** Password-reset email sender. Without SMTP settings the link is logged to the console instead. */
 import nodemailer from "nodemailer";
 
 const SMTP_HOST = process.env.SMTP_HOST;

@@ -1,10 +1,5 @@
+import { DayBar } from "../../utils/reportData";
 import { formatChartDayLabel } from "../../utils/time";
-
-export interface DayBar {
-  date: string; // ISO date for that day
-  totalSeconds: number;
-  segments: { color: string; seconds: number }[];
-}
 
 interface Props {
   days: DayBar[];
@@ -12,6 +7,7 @@ interface Props {
 
 const CHART_HEIGHT = 220;
 
+/** Stacked bar chart of the time per day (summary report), with an hours axis. */
 export default function BarChart({ days }: Props) {
   const maxSeconds = Math.max(1, ...days.map((d) => d.totalSeconds));
   const maxHours = Math.max(1, Math.ceil(maxSeconds / 3600));

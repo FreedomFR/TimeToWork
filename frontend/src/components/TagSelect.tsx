@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { Tag } from "../api/types";
+import { useClickOutside } from "../hooks/useClickOutside";
 import { IconTag } from "./icons";
 
 interface Props {
@@ -11,6 +12,10 @@ interface Props {
   buttonClassName?: string;
 }
 
+/**
+ * Multi-select of tags with search and inline creation (Enter or "+ Créer").
+ * `buttonClassName` swaps the default trigger for a custom-styled one (used in the detailed report).
+ */
 export default function TagSelect({
   tags,
   value,
@@ -23,16 +28,10 @@ export default function TagSelect({
   const [query, setQuery] = useState("");
   const ref = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    function onClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-        setQuery("");
-      }
-    }
-    document.addEventListener("mousedown", onClick);
-    return () => document.removeEventListener("mousedown", onClick);
-  }, []);
+  useClickOutside(ref, () => {
+    setOpen(false);
+    setQuery("");
+  });
 
   function toggleTag(id: string) {
     onChange(value.includes(id) ? value.filter((t) => t !== id) : [...value, id]);

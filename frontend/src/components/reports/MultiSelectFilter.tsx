@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
+import { useClickOutside } from "../../hooks/useClickOutside";
 import { IconChevronDown } from "../icons";
 
 interface Option {
@@ -14,17 +15,12 @@ interface Props {
   onChange: (ids: string[]) => void;
 }
 
+/** Filter-bar dropdown with checkboxes; shows a badge with the number of selected options. */
 export default function MultiSelectFilter({ label, options, value, onChange }: Props) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    function onClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    }
-    document.addEventListener("mousedown", onClick);
-    return () => document.removeEventListener("mousedown", onClick);
-  }, []);
+  useClickOutside(ref, () => setOpen(false));
 
   function toggle(id: string) {
     onChange(value.includes(id) ? value.filter((v) => v !== id) : [...value, id]);

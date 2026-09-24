@@ -1,59 +1,48 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Project, Tag, TimeEntry } from "../api/types";
+import { useEffect, useState } from "react";
+import { NewEntryPayload, Project, Tag, TimeEntry } from "../api/types";
 import {
-  formatDuration,
+  combineDateTime,
   durationSeconds,
   formatDayLabel,
-  parseDurationInput,
-  combineDateTime,
+  formatDuration,
+  nowTimeStr,
+  toTimeStr,
+  todayStr,
 } from "../utils/time";
+import DescriptionInput from "./DescriptionInput";
 import ProjectSelect from "./ProjectSelect";
 import TagSelect from "./TagSelect";
 import BillableToggle from "./BillableToggle";
 import TimeInput from "./TimeInput";
-import { IconCalendar, IconList, IconTimer, IconPlay, IconStop } from "./icons";
-
-interface ManualPayload {
-  description: string;
-  projectId: string | null;
-  tagIds: string[];
-  billable: boolean;
-  start: string;
-  end: string;
-}
+import DatePickerButton from "./ui/DatePickerButton";
+import DurationInput from "./ui/DurationInput";
+import { CARD_CLASS } from "./ui/styles";
+import { IconList, IconTimer, IconPlay, IconStop } from "./icons";
 
 interface Props {
   projects: Project[];
   tags: Tag[];
+  /** The currently running entry, if any (its fields are mirrored into the bar). */
   running: TimeEntry | null;
+  /** Past entries, used for the "recent tasks" suggestions. */
   recentEntries: TimeEntry[];
-  onStart: (
-    description: string,
-    projectId: string | null,
-    tagIds: string[],
-    billable: boolean
-  ) => Promise<void>;
+  onStart: (description: string, projectId: string | null, tagIds: string[], billable: boolean) => Promise<void>;
   onStop: () => Promise<void>;
-  onCreateManual: (payload: ManualPayload) => Promise<void>;
+  onCreateManual: (payload: NewEntryPayload) => Promise<void>;
   onCreateTag: (name: string) => Promise<Tag>;
 }
 
-const MAX_SUGGESTIONS = 5;
+type Mode = "timer" | "manual";
 
-function pad(n: number) {
-  return String(n).padStart(2, "0");
-}
+const DURATION_INPUT_CLASS =
+  "font-mono text-base w-24 text-center bg-transparent border-none text-gray-200 placeholder:text-gray-200 focus:outline-none focus:ring-2 focus:ring-accent rounded py-2";
 
-function todayStr(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
-
-function nowTimeStr(): string {
-  const d = new Date();
-  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
+/**
+ * Full-width bar at the top of the time tracker, in two modes:
+ *  - "timer": start/stop a live timer;
+ *  - "manual": log a finished entry with free-form start/end times and date.
+ * Switching is locked while a timer runs.
+ */
 export default function TimerBar({
   projects,
   tags,
@@ -64,72 +53,33 @@ export default function TimerBar({
   onCreateManual,
   onCreateTag,
 }: Props) {
-  const [mode, setMode] = useState<"timer" | "manual">("manual");
+  const [mode, setMode] = useState<Mode>("manual");
   const [description, setDescription] = useState("");
   const [projectId, setProjectId] = useState<string | null>(null);
   const [tagIds, setTagIds] = useState<string[]>([]);
   const [billable, setBillable] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [busy, setBusy] = useState(false);
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const suggestBoxRef = useRef<HTMLDivElement>(null);
 
+  // Manual-mode fields
   const [date, setDate] = useState(todayStr());
   const [startTime, setStartTime] = useState(nowTimeStr());
   const [endTime, setEndTime] = useState(nowTimeStr());
-  const [durationInput, setDurationInput] = useState("");
-  const dateInputRef = useRef<HTMLInputElement>(null);
 
-  const suggestions = useMemo(() => {
-    const seen = new Set<string>();
-    const result: TimeEntry[] = [];
-    for (const entry of recentEntries) {
-      const key = entry.description.trim().toLowerCase();
-      if (!key || seen.has(key)) continue;
-      seen.add(key);
-      result.push(entry);
-      if (result.length >= MAX_SUGGESTIONS) break;
-    }
-    return result;
-  }, [recentEntries]);
-
-  const filteredSuggestions = useMemo(() => {
-    const query = description.trim().toLowerCase();
-    if (!query) return suggestions;
-    return suggestions.filter((s) => s.description.toLowerCase().includes(query));
-  }, [suggestions, description]);
-
+  // Mirror the running entry into the bar and tick the elapsed counter every second
   useEffect(() => {
-    function onClick(e: MouseEvent) {
-      if (suggestBoxRef.current && !suggestBoxRef.current.contains(e.target as Node)) {
-        setShowSuggestions(false);
-      }
-    }
-    document.addEventListener("mousedown", onClick);
-    return () => document.removeEventListener("mousedown", onClick);
-  }, []);
-
-  function applySuggestion(entry: TimeEntry) {
-    setDescription(entry.description);
-    setProjectId(entry.projectId);
-    setShowSuggestions(false);
-  }
-
-  useEffect(() => {
-    if (running) {
-      setMode("timer");
-      setDescription(running.description);
-      setProjectId(running.projectId);
-      setTagIds(running.tags.map((t) => t.id));
-      setBillable(running.billable);
-      setElapsed(durationSeconds(running.start, null));
-      const interval = setInterval(() => {
-        setElapsed(durationSeconds(running.start, null));
-      }, 1000);
-      return () => clearInterval(interval);
-    } else {
+    if (!running) {
       setElapsed(0);
+      return;
     }
+    setMode("timer");
+    setDescription(running.description);
+    setProjectId(running.projectId);
+    setTagIds(running.tags.map((t) => t.id));
+    setBillable(running.billable);
+    setElapsed(durationSeconds(running.start, null));
+    const interval = setInterval(() => setElapsed(durationSeconds(running.start, null)), 1000);
+    return () => clearInterval(interval);
   }, [running]);
 
   function resetFields() {
@@ -137,6 +87,11 @@ export default function TimerBar({
     setProjectId(null);
     setTagIds([]);
     setBillable(false);
+  }
+
+  function applySuggestion(entry: TimeEntry) {
+    setDescription(entry.description);
+    setProjectId(entry.projectId);
   }
 
   async function handleToggleTimer() {
@@ -168,65 +123,29 @@ export default function TimerBar({
       setDate(todayStr());
       setStartTime(nowTimeStr());
       setEndTime(nowTimeStr());
-      setDurationInput("");
     } finally {
       setBusy(false);
     }
   }
 
-  function handleDurationBlur() {
-    const seconds = parseDurationInput(durationInput);
-    setDurationInput("");
-    if (seconds === null) return;
-    const startIso = combineDateTime(date, startTime);
-    const newEnd = new Date(new Date(startIso).getTime() + seconds * 1000);
-    setEndTime(`${pad(newEnd.getHours())}:${pad(newEnd.getMinutes())}`);
+  // Typing a duration moves the end time, keeping the start fixed
+  function handleDurationCommit(seconds: number) {
+    const newEnd = new Date(new Date(combineDateTime(date, startTime)).getTime() + seconds * 1000);
+    setEndTime(toTimeStr(newEnd));
   }
 
-  const manualSeconds = Math.max(0, durationSeconds(combineDateTime(date, startTime), combineDateTime(date, endTime)));
-  const dateLabel = formatDayLabel(combineDateTime(date, startTime));
+  const manualStartIso = combineDateTime(date, startTime);
+  const manualSeconds = durationSeconds(manualStartIso, combineDateTime(date, endTime));
 
   return (
-    <div className="bg-surface rounded-lg border border-border px-3 py-2 flex items-center gap-1 flex-wrap">
-      <div className="relative flex-1 min-w-[160px]" ref={suggestBoxRef}>
-        <input
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          onFocus={() => setShowSuggestions(true)}
-          placeholder="Sur quoi avez-vous travaillé ?"
-          disabled={!!running && busy}
-          className="w-full bg-transparent border-none focus:outline-none text-sm px-2 py-2 text-gray-200 placeholder:text-muted"
-        />
-
-        {showSuggestions && filteredSuggestions.length > 0 && (
-          <div className="absolute z-20 mt-1 left-0 w-96 max-w-[90vw] bg-surface border border-border rounded shadow-lg overflow-hidden">
-            <div className="px-3 py-1.5 text-xs text-muted border-b border-border">
-              Tâches récentes
-            </div>
-            {filteredSuggestions.map((s) => (
-              <button
-                key={s.id}
-                onClick={() => applySuggestion(s)}
-                className="w-full flex items-center gap-2 text-left px-3 py-2 text-sm hover:bg-surfaceAlt"
-              >
-                <span className="text-gray-200 truncate flex-1 min-w-0">{s.description}</span>
-                {s.project && (
-                  <span
-                    className="flex items-center gap-1.5 text-xs shrink-0"
-                    style={{ color: s.project.color }}
-                  >
-                    <span
-                      className="w-1.5 h-1.5 rounded-full"
-                      style={{ backgroundColor: s.project.color }}
-                    />
-                    {s.project.name}
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
+    <div className={`${CARD_CLASS} px-3 py-2 flex items-center gap-1 flex-wrap`}>
+      <DescriptionInput
+        value={description}
+        onChange={setDescription}
+        onPickSuggestion={applySuggestion}
+        recentEntries={recentEntries}
+        disabled={!!running && busy}
+      />
 
       <ProjectSelect projects={projects} value={projectId} onChange={setProjectId} />
       <TagSelect tags={tags} value={tagIds} onChange={setTagIds} onCreateTag={onCreateTag} />
@@ -234,9 +153,7 @@ export default function TimerBar({
 
       {mode === "timer" ? (
         <>
-          <div className="font-mono text-lg tabular-nums w-24 text-center text-gray-200">
-            {formatDuration(elapsed)}
-          </div>
+          <div className="font-mono text-lg tabular-nums w-24 text-center text-gray-200">{formatDuration(elapsed)}</div>
           <button
             onClick={handleToggleTimer}
             disabled={busy}
@@ -254,32 +171,13 @@ export default function TimerBar({
           <span className="text-muted">-</span>
           <TimeInput value={endTime} onChange={setEndTime} ariaLabel="Heure de fin" />
 
-          <div className="relative shrink-0">
-            <button
-              type="button"
-              onClick={() => dateInputRef.current?.showPicker?.() ?? dateInputRef.current?.focus()}
-              className="flex items-center gap-1.5 px-2.5 py-2 text-sm rounded hover:bg-surfaceAlt text-gray-300 whitespace-nowrap"
-            >
-              <IconCalendar className="w-4 h-4 text-muted" />
-              {dateLabel}
-            </button>
-            <input
-              ref={dateInputRef}
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              className="absolute inset-0 opacity-0 pointer-events-none w-0 h-0"
-            />
-          </div>
+          <DatePickerButton value={date} onChange={setDate} label={formatDayLabel(manualStartIso)} />
 
-          <input
-            value={durationInput}
-            onChange={(e) => setDurationInput(e.target.value)}
-            onBlur={handleDurationBlur}
-            onKeyDown={(e) => e.key === "Enter" && (e.currentTarget as HTMLInputElement).blur()}
-            placeholder={formatDuration(manualSeconds)}
-            aria-label="Durée"
-            className="font-mono text-base w-24 text-center bg-transparent border-none text-gray-200 placeholder:text-gray-200 focus:outline-none focus:ring-2 focus:ring-accent rounded py-2"
+          <DurationInput
+            seconds={manualSeconds}
+            onCommit={handleDurationCommit}
+            ariaLabel="Durée"
+            className={DURATION_INPUT_CLASS}
           />
 
           <button

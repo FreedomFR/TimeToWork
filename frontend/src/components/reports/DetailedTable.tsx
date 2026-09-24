@@ -1,8 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { Tag, TimeEntry } from "../../api/types";
 import { formatClock, formatDuration, durationSeconds, dateStrOf } from "../../utils/time";
 import TagSelect from "../TagSelect";
-import { IconMore, IconPlay, IconTrash } from "../icons";
+import ActionMenu from "../ui/ActionMenu";
+import ProjectLabel from "../ui/ProjectLabel";
+import { CARD_CLASS } from "../ui/styles";
+import { NO_DESCRIPTION_LABEL } from "../../utils/constants";
+import { IconPlay, IconTrash } from "../icons";
 
 interface Props {
   entries: TimeEntry[];
@@ -18,55 +22,7 @@ interface Props {
 const TAG_BUTTON_CLASS =
   "flex items-center gap-1.5 px-2.5 py-1 text-xs rounded border border-border text-muted hover:text-gray-200 hover:border-gray-500 whitespace-nowrap";
 
-function RowMenu({ onContinue, onDelete }: { onContinue: () => void; onDelete: () => void }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function onClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    }
-    document.addEventListener("mousedown", onClick);
-    return () => document.removeEventListener("mousedown", onClick);
-  }, []);
-
-  return (
-    <div className="relative" ref={ref}>
-      <button
-        onClick={() => setOpen((o) => !o)}
-        title="Plus d'options"
-        className="p-1.5 text-muted hover:text-gray-200 rounded"
-      >
-        <IconMore />
-      </button>
-      {open && (
-        <div className="absolute right-0 z-20 mt-1 w-40 bg-surface border border-border rounded shadow-lg overflow-hidden">
-          <button
-            onClick={() => {
-              setOpen(false);
-              onContinue();
-            }}
-            className="w-full flex items-center gap-2 text-left px-3 py-2 text-sm text-gray-200 hover:bg-surfaceAlt"
-          >
-            <IconPlay className="w-4 h-4" />
-            Continuer
-          </button>
-          <button
-            onClick={() => {
-              setOpen(false);
-              onDelete();
-            }}
-            className="w-full flex items-center gap-2 text-left px-3 py-2 text-sm text-red-400 hover:bg-surfaceAlt"
-          >
-            <IconTrash className="w-4 h-4" />
-            Supprimer
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
+/** One row per time entry, with bulk selection, tag editing, and per-row continue/delete actions. */
 export default function DetailedTable({
   entries,
   tags,
@@ -101,7 +57,7 @@ export default function DetailedTable({
   }
 
   return (
-    <div className="bg-surface rounded-lg border border-border">
+    <div className={CARD_CLASS}>
       {selected.size > 0 && (
         <div className="flex items-center gap-3 px-4 py-2 border-b border-border bg-surfaceAlt">
           <span className="text-sm text-gray-200">{selected.size} sélectionnée(s)</span>
@@ -141,15 +97,9 @@ export default function DetailedTable({
             <div className="flex-1 min-w-0 flex items-center gap-3 flex-wrap">
               <div className="min-w-0">
                 <span className="text-sm text-gray-200 truncate block">
-                  {entry.description || <span className="text-muted">(sans description)</span>}
+                  {entry.description || <span className="text-muted">{NO_DESCRIPTION_LABEL}</span>}
                 </span>
-                {entry.project && (
-                  <span className="flex items-center gap-1.5 text-xs" style={{ color: entry.project.color }}>
-                    <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: entry.project.color }} />
-                    {entry.project.name}
-                    {entry.project.client && ` - ${entry.project.client.name}`}
-                  </span>
-                )}
+                {entry.project && <ProjectLabel project={entry.project} className="text-xs" />}
               </div>
               <TagSelect
                 tags={tags}
@@ -175,7 +125,17 @@ export default function DetailedTable({
             </span>
 
             <div className="w-7 shrink-0 flex justify-end">
-              <RowMenu onContinue={() => onContinue(entry)} onDelete={() => onDelete(entry.id)} />
+              <ActionMenu
+                items={[
+                  { label: "Continuer", icon: <IconPlay className="w-4 h-4" />, onSelect: () => onContinue(entry) },
+                  {
+                    label: "Supprimer",
+                    icon: <IconTrash className="w-4 h-4" />,
+                    danger: true,
+                    onSelect: () => onDelete(entry.id),
+                  },
+                ]}
+              />
             </div>
           </div>
         );

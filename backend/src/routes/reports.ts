@@ -1,41 +1,44 @@
+/** Server-side aggregated reports. */
 import { Router } from "express";
 import { prisma } from "../lib/prisma";
+import { startRangeFilter } from "../lib/http";
 import { requireAuth, AuthRequest } from "../middleware/auth";
 
 const router = Router();
 router.use(requireAuth);
 
-// Summary report: total duration grouped by project for a date range
+/** Color used for entries without a project. */
+const NO_PROJECT_COLOR = "#9CA3AF";
+
+interface ProjectTotal {
+  projectId: string | null;
+  name: string;
+  color: string;
+  seconds: number;
+}
+
+// Summary report: total duration grouped by project for a date range.
+// Running timers (no end yet) are excluded.
 router.get("/summary", async (req: AuthRequest, res) => {
   const { from, to } = req.query as { from?: string; to?: string };
-  const where: any = { userId: req.userId!, end: { not: null } };
-  if (from || to) {
-    where.start = {};
-    if (from) where.start.gte = new Date(from);
-    if (to) where.start.lte = new Date(to);
-  }
 
   const entries = await prisma.timeEntry.findMany({
-    where,
+    where: { userId: req.userId!, end: { not: null }, start: startRangeFilter(from, to) },
     include: { project: true },
   });
 
-  const byProject = new Map<
-    string,
-    { projectId: string | null; name: string; color: string; seconds: number }
-  >();
-
+  const byProject = new Map<string, ProjectTotal>();
   let totalSeconds = 0;
+
   for (const entry of entries) {
-    const seconds = Math.floor(
-      (new Date(entry.end as Date).getTime() - new Date(entry.start).getTime()) / 1000
-    );
+    const seconds = Math.floor((entry.end!.getTime() - entry.start.getTime()) / 1000);
     totalSeconds += seconds;
+
     const key = entry.projectId || "none";
     const current = byProject.get(key) || {
       projectId: entry.projectId,
       name: entry.project?.name || "Aucun projet",
-      color: entry.project?.color || "#9CA3AF",
+      color: entry.project?.color || NO_PROJECT_COLOR,
       seconds: 0,
     };
     current.seconds += seconds;

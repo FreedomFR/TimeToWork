@@ -5,6 +5,7 @@ interface Props {
   onChange: (value: boolean) => void;
 }
 
+/** Button toggling whether an entry is billable. */
 export default function BillableToggle({ value, onChange }: Props) {
   return (
     <button

@@ -1,6 +1,8 @@
+/** Clients: CRUD scoped to the current user. Deleting a client unlinks its projects. */
 import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/prisma";
+import { notFound, parseBody } from "../lib/http";
 import { requireAuth, AuthRequest } from "../middleware/auth";
 
 const router = Router();
@@ -14,21 +16,21 @@ router.get("/", async (req: AuthRequest, res) => {
   res.json(clients);
 });
 
-const clientSchema = z.object({
+const createSchema = z.object({
   name: z.string().min(1),
 });
 
 router.post("/", async (req: AuthRequest, res) => {
-  const parsed = clientSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  const data = parseBody(createSchema, req.body, res);
+  if (!data) return;
 
   const client = await prisma.client.create({
-    data: { name: parsed.data.name, userId: req.userId! },
+    data: { name: data.name, userId: req.userId! },
   });
   res.status(201).json(client);
 });
 
-const updateClientSchema = z.object({
+const updateSchema = z.object({
   name: z.string().min(1).optional(),
   archived: z.boolean().optional(),
 });
@@ -37,20 +39,14 @@ router.put("/:id", async (req: AuthRequest, res) => {
   const client = await prisma.client.findFirst({
     where: { id: req.params.id, userId: req.userId! },
   });
-  if (!client) return res.status(404).json({ error: "Not found" });
+  if (!client) return notFound(res);
 
-  const parsed = updateClientSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  const data = parseBody(updateSchema, req.body, res);
+  if (!data) return;
 
-  // Only the fields actually sent are written — see the same fix on the
+  // Only the fields actually sent are written — see the same note on the
   // projects route for why a stale full-object read-modify-write is unsafe.
-  const updated = await prisma.client.update({
-    where: { id: client.id },
-    data: {
-      name: parsed.data.name,
-      archived: parsed.data.archived,
-    },
-  });
+  const updated = await prisma.client.update({ where: { id: client.id }, data });
   res.json(updated);
 });
 
@@ -58,7 +54,7 @@ router.delete("/:id", async (req: AuthRequest, res) => {
   const client = await prisma.client.findFirst({
     where: { id: req.params.id, userId: req.userId! },
   });
-  if (!client) return res.status(404).json({ error: "Not found" });
+  if (!client) return notFound(res);
 
   await prisma.client.delete({ where: { id: client.id } });
   res.status(204).send();

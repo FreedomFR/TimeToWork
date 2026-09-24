@@ -28,7 +28,9 @@ Crée un compte depuis l'écran d'inscription, puis crée tes projets/clients et
 - Entrées de temps regroupées par jour avec total quotidien
 - Gestion des projets (couleur, client associé, archivage)
 - Gestion des clients
-- Rapports par période avec répartition du temps par projet
+- Tableau de bord : temps total, projet/client principal, histogramme par jour, répartition par projet, activités les plus suivies
+- Rapports (Résumé, Détaillé, Hebdomadaire) avec filtres, plage de dates personnalisée, arrondi au quart d'heure
+- Export des rapports en CSV, Excel, PDF ou JSON (contenu et colonnes au choix)
 - Réinitialisation du mot de passe par email ("Mot de passe oublié ?" sur l'écran de connexion)
 
 ## Réinitialisation du mot de passe
@@ -42,6 +44,29 @@ Si `SMTP_HOST` n'est pas renseigné, aucun email n'est envoyé : le lien de réi
 En passant `DEV_MODE=true` dans `.env`, l'écran de connexion affiche la liste de tous les comptes existants : un clic sur un compte connecte instantanément, sans mot de passe.
 
 ⚠️ À réserver strictement à un environnement local/dev — n'active jamais `DEV_MODE` sur une instance accessible par quelqu'un d'autre que toi, cela permet de se connecter à n'importe quel compte.
+
+## Architecture du code
+
+```
+backend/src
+  app.ts, index.ts        app Express (testable) / point d'entrée qui écoute le port
+  routes/                 un fichier par ressource : auth, projects, clients, tags, timeEntries, reports
+  middleware/auth.ts      JWT : requireAuth + signToken
+  lib/                    prisma, mailer, http (validation zod, 404, filtre de dates)
+
+frontend/src
+  pages/                  une page par écran (TimeTracker, Dashboard, Reports, Projects, Clients, Login…)
+  components/             composants métier (TimerBar, EntryRow, EntryGroup…)
+    reports/              onglets et widgets des rapports (FilterBar, SummaryView, WeeklyTable, ExportDialog…)
+    dashboard/            graphique du tableau de bord
+    ui/                   briques génériques réutilisées (ActionMenu, ToggleSwitch, AuthLayout, styles…)
+  hooks/                  useClickOutside, useTimeEntries
+  utils/                  logique pure, sans React : time (dates/durées), reportData (filtres/regroupements),
+                          dashboard (calculs), grouping (liste par semaine/jour), export, xlsx, constants
+  api/                    client axios et types des réponses de l'API
+```
+
+Principe : les calculs (durées, regroupements, totaux) vivent dans `utils/` en fonctions pures ; les pages ne gèrent que l'état et l'enchaînement des appels API ; les composants ne font que de l'affichage.
 
 ## Développement sans Docker
 
@@ -64,13 +89,13 @@ Nécessite une instance PostgreSQL locale et un fichier `.env` dans `backend/` a
 
 Le projet a deux suites de tests, à lancer après avoir démarré la stack (`docker compose up -d`) :
 
-**Backend (69 tests)** — tests d'intégration (Vitest + Supertest) qui couvrent auth, projets, clients, tags, entrées de temps et rapports, sur une base Postgres de test dédiée (`timetowork_test`, créée et migrée automatiquement) :
+**Backend (71 tests)** — tests d'intégration (Vitest + Supertest) qui couvrent auth, projets, clients, tags, entrées de temps et rapports, sur une base Postgres de test dédiée (`timetowork_test`, créée et migrée automatiquement) :
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.test.yml run --rm backend-test
 ```
 
-**End-to-end (20 tests)** — Playwright, qui pilote un vrai navigateur contre l'application complète (inscription, connexion, minuteur, saisie manuelle, tags, projets/clients, édition en ligne, rapports, mot de passe oublié, mode DEV) :
+**End-to-end (48 tests)** — Playwright, qui pilote un vrai navigateur contre l'application complète (inscription, connexion, minuteur, saisie manuelle, tags, projets/clients, édition en ligne, tableau de bord, rapports, export, mot de passe oublié, mode DEV) :
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.test.yml build frontend-test

@@ -1,6 +1,8 @@
+/** Tags: list, create and delete, scoped to the current user. */
 import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/prisma";
+import { notFound, parseBody } from "../lib/http";
 import { requireAuth, AuthRequest } from "../middleware/auth";
 
 const router = Router();
@@ -14,14 +16,14 @@ router.get("/", async (req: AuthRequest, res) => {
   res.json(tags);
 });
 
-const tagSchema = z.object({ name: z.string().min(1) });
+const createSchema = z.object({ name: z.string().min(1) });
 
 router.post("/", async (req: AuthRequest, res) => {
-  const parsed = tagSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  const data = parseBody(createSchema, req.body, res);
+  if (!data) return;
 
   const tag = await prisma.tag.create({
-    data: { name: parsed.data.name, userId: req.userId! },
+    data: { name: data.name, userId: req.userId! },
   });
   res.status(201).json(tag);
 });
@@ -30,7 +32,7 @@ router.delete("/:id", async (req: AuthRequest, res) => {
   const tag = await prisma.tag.findFirst({
     where: { id: req.params.id, userId: req.userId! },
   });
-  if (!tag) return res.status(404).json({ error: "Not found" });
+  if (!tag) return notFound(res);
 
   await prisma.tag.delete({ where: { id: tag.id } });
   res.status(204).send();

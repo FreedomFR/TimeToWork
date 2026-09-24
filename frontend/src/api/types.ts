@@ -1,3 +1,4 @@
+/** Shapes of the JSON returned by the backend API. */
 export interface User {
   id: string;
   email: string;
@@ -44,3 +45,24 @@ export interface ReportSummary {
     seconds: number;
   }[];
 }
+
+/** Payload to create an already-finished entry (manual mode of the time tracker). */
+export interface NewEntryPayload {
+  description: string;
+  projectId: string | null;
+  tagIds: string[];
+  billable: boolean;
+  /** ISO strings */
+  start: string;
+  end: string;
+}
+
+/** Fields of an entry that can be edited in place (all optional: only sent fields change). */
+export type EntryPatch = Partial<{
+  description: string;
+  projectId: string | null;
+  tagIds: string[];
+  billable: boolean;
+  start: string;
+  end: string;
+}>;

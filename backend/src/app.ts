@@ -1,3 +1,4 @@
+/** Express application: middleware and route mounting (the HTTP server itself starts in index.ts). */
 import express from "express";
 import cors from "cors";
 import authRoutes from "./routes/auth";

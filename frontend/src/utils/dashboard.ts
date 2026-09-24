@@ -1,7 +1,10 @@
+/**
+ * Pure computation behind the dashboard page: totals, top project/client,
+ * chart buckets, per-project shares and most-tracked activities.
+ */
 import { TimeEntry } from "../api/types";
+import { NEUTRAL_COLOR, NO_DESCRIPTION_LABEL, NO_PROJECT_LABEL } from "./constants";
 import { dateStrOf, durationSeconds } from "./time";
-
-export const NEUTRAL_COLOR = "#8b93a7";
 
 export interface Bucket {
   key: string;
@@ -54,6 +57,10 @@ function monthLabel(d: Date): string {
   return d.toLocaleDateString("fr-FR", { month: "short", year: "numeric" });
 }
 
+/**
+ * One bucket per day of the range (empty days included, so the chart shows every
+ * day), or one per month when the range exceeds `MAX_DAILY_BARS` days.
+ */
 function buildBuckets(entries: TimeEntry[], from: Date, to: Date): Bucket[] {
   const dayCount = Math.round((to.getTime() - from.getTime()) / 86_400_000) + 1;
   const monthly = dayCount > MAX_DAILY_BARS;
@@ -88,6 +95,7 @@ function buildBuckets(entries: TimeEntry[], from: Date, to: Date): Bucket[] {
   });
 }
 
+/** Key with the largest total, or null when every total is 0. */
 function topKey(totals: Map<string, number>): string | null {
   let best: string | null = null;
   let bestSeconds = 0;
@@ -100,6 +108,7 @@ function topKey(totals: Map<string, number>): string | null {
   return best;
 }
 
+/** Computes every figure shown on the dashboard for the entries within [from, to]. */
 export function computeDashboard(entries: TimeEntry[], from: Date, to: Date): DashboardStats {
   const projectTotals = new Map<string, number>();
   const clientTotals = new Map<string, number>();
@@ -121,7 +130,7 @@ export function computeDashboard(entries: TimeEntry[], from: Date, to: Date): Da
     const shareKey = e.projectId || "none";
     const share = shareMap.get(shareKey) || {
       key: shareKey,
-      name: projectName ?? "Aucun projet",
+      name: projectName ?? NO_PROJECT_LABEL,
       clientName,
       color,
       seconds: 0,
@@ -130,7 +139,7 @@ export function computeDashboard(entries: TimeEntry[], from: Date, to: Date): Da
     share.seconds += seconds;
     shareMap.set(shareKey, share);
 
-    const description = e.description || "(sans description)";
+    const description = e.description || NO_DESCRIPTION_LABEL;
     const activityKey = `${description}\u0000${e.projectId || "none"}`;
     const activity = activityMap.get(activityKey) || {
       key: activityKey,

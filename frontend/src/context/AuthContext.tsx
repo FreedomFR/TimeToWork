@@ -13,6 +13,10 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+/**
+ * Holds the signed-in user. The JWT lives in localStorage; on load it is exchanged
+ * for the user via `/auth/me`, and an invalid token is dropped.
+ */
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);

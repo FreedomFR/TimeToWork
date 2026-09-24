@@ -1,6 +1,10 @@
 import { useMemo } from "react";
 import { TimeEntry } from "../../api/types";
-import { dateStrOf, durationSeconds, formatDuration, roundToQuarterHour } from "../../utils/time";
+import { NEUTRAL_COLOR, NO_DESCRIPTION_LABEL, NO_PROJECT_LABEL } from "../../utils/constants";
+import { entrySeconds } from "../../utils/reportData";
+import { dateStrOf, formatDuration } from "../../utils/time";
+import CountBadge from "../ui/CountBadge";
+import { CARD_CLASS } from "../ui/styles";
 
 export type WeeklyGroupBy = "project" | "client" | "description";
 
@@ -27,14 +31,16 @@ interface Row {
   total: number;
 }
 
-const NEUTRAL_COLOR = "#8b93a7";
-
 function dayHeader(d: Date): string {
   const weekday = d.toLocaleDateString("fr-FR", { weekday: "short" }).replace(".", "");
   const month = d.toLocaleDateString("fr-FR", { month: "short" });
   return `${weekday}, ${month} ${d.getDate()}`;
 }
 
+/**
+ * Weekly report: one row per project / client / description, one column per day of
+ * the week (Monday to Sunday) plus row and column totals.
+ */
 export default function WeeklyTable({ entries, weekStart, rounded, groupBy }: Props) {
   const days = useMemo(
     () =>
@@ -61,19 +67,18 @@ export default function WeeklyTable({ entries, weekStart, rounded, groupBy }: Pr
 
       if (groupBy === "project") {
         key = e.projectId || "none";
-        name = e.project?.name || "Aucun projet";
+        name = e.project?.name || NO_PROJECT_LABEL;
       } else if (groupBy === "client") {
         key = e.project?.clientId || "none";
         name = e.project?.client?.name || "Sans client";
         color = NEUTRAL_COLOR;
         clientName = null;
       } else {
-        key = e.description || "(sans description)";
-        name = e.description || "(sans description)";
+        key = e.description || NO_DESCRIPTION_LABEL;
+        name = e.description || NO_DESCRIPTION_LABEL;
       }
 
-      const raw = durationSeconds(e.start, e.end);
-      const seconds = rounded ? roundToQuarterHour(raw) : raw;
+      const seconds = entrySeconds(e, rounded);
 
       const row = groups.get(key) || {
         key,
@@ -97,7 +102,7 @@ export default function WeeklyTable({ entries, weekStart, rounded, groupBy }: Pr
 
   if (rows.length === 0) {
     return (
-      <div className="bg-surface rounded-lg border border-border p-12 text-center text-muted text-sm">
+      <div className={`${CARD_CLASS} p-12 text-center text-muted text-sm`}>
         Aucune donnée pour cette période
       </div>
     );
@@ -111,7 +116,7 @@ export default function WeeklyTable({ entries, weekStart, rounded, groupBy }: Pr
     );
 
   return (
-    <div className="bg-surface rounded-lg border border-border overflow-x-auto">
+    <div className={`${CARD_CLASS} overflow-x-auto`}>
       <table className="w-full text-sm min-w-[880px]">
         <thead>
           <tr className="text-xs text-muted border-b border-border">
@@ -129,9 +134,7 @@ export default function WeeklyTable({ entries, weekStart, rounded, groupBy }: Pr
             <tr key={row.key} className="border-b border-border hover:bg-surfaceAlt">
               <td className="px-4 py-3">
                 <div className="flex items-center gap-3 min-w-0">
-                  <span className="w-6 h-6 shrink-0 rounded bg-surfaceAlt text-muted text-xs font-medium flex items-center justify-center">
-                    {row.count}
-                  </span>
+                  <CountBadge count={row.count} />
                   <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: row.color }} />
                   <span className="truncate" style={{ color: row.color }}>
                     {row.name}
