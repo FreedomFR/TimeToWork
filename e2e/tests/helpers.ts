@@ -1,12 +1,12 @@
 /**
  * Shared helpers of the E2E suite.
  *
- * Accounts: the `setup` project (auth.setup.ts) registers ONE test account through
- * the register page and saves its session; every other test starts already signed in
- * as that account. To keep tests independent, `registerAndLogin` wipes the account's
- * data (through the API) at the start of each test, so it always looks brand new.
- * Tests that must not touch the shared account (e.g. changing its password) use
- * `registerFreshUser` instead.
+ * Accounts (tests run in parallel, one browser per worker, so accounts are not shared between workers):
+ *  - the `setup` project (auth.setup.ts) registers ONE account through the real register page.
+ *    It is only used by the login tests, which never modify it (read-only, safe in parallel);
+ *  - each worker lazily creates its OWN account through the API, and `registerAndLogin` empties
+ *    it and signs the page in before every test, so a test always starts from a brand-new account;
+ *  - tests that would alter their account (password change…) use `registerFreshUser`.
  */
 import fs from "fs";
 import path from "path";
@@ -15,7 +15,6 @@ import { Page, expect } from "@playwright/test";
 const API_URL = process.env.API_URL || "http://backend:4000";
 
 export const AUTH_DIR = path.join(__dirname, "..", ".auth");
-export const STORAGE_STATE = path.join(AUTH_DIR, "user.json");
 export const CREDENTIALS_FILE = path.join(AUTH_DIR, "credentials.json");
 
 export interface TestUser {
@@ -29,7 +28,8 @@ let counter = 0;
 /** A never-used account identity (the "E2E User" prefix lets the cleanup script find it). */
 export function uniqueUser(): TestUser {
   counter += 1;
-  const stamp = `${Date.now()}_${counter}`;
+  // pid: two workers may create an account in the same millisecond
+  const stamp = `${Date.now()}_${process.pid}_${counter}`;
   return {
     name: `E2E User ${stamp}`,
     email: `e2e_${stamp}@example.com`,
@@ -49,7 +49,7 @@ export async function registerViaUi(page: Page, user: TestUser) {
   await expect(page.getByRole("heading", { name: "Suivi du temps" })).toBeVisible();
 }
 
-/** The account created by the `setup` project. */
+/** The account created by the `setup` project. Read-only: the login tests must never modify it. */
 export function sharedUser(): TestUser {
   return JSON.parse(fs.readFileSync(CREDENTIALS_FILE, "utf-8"));
 }
@@ -80,31 +80,47 @@ async function resetAccountData(token: string) {
 
 // ─── What tests call ───────────────────────────────────────────────────────
 
-/**
- * Opens the app as the shared test account, emptied of any data left by a previous test.
- * The browser context is already signed in (session saved by the `setup` project).
- */
-export async function registerAndLogin(page: Page): Promise<TestUser> {
-  const user = sharedUser();
-  const { token } = await api("POST", "/auth/login", undefined, { email: user.email, password: user.password });
-  await resetAccountData(token);
+interface Account {
+  user: TestUser;
+  token: string;
+}
 
+/** Creates an account through the API (fast) and returns it with its session token. */
+async function createAccount(): Promise<Account> {
+  const user = uniqueUser();
+  const { token } = await api("POST", "/auth/register", undefined, user);
+  return { user, token };
+}
+
+// Each Playwright worker is its own process, so this is one account per worker
+let workerAccount: Account | null = null;
+
+/** Signs the page in by storing the session token the way the app does, then opens the time tracker. */
+async function signIn(page: Page, token: string) {
+  // The login page is public, so it can be opened while signed out to reach the app's origin
+  await page.goto("/login");
+  await page.evaluate((t) => localStorage.setItem("token", t), token);
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Suivi du temps" })).toBeVisible();
-  return user;
 }
 
 /**
- * Creates a brand-new account (through the API, so it is fast) and signs the page in as it.
- * For tests that would otherwise affect the shared account: password changes, etc.
+ * Opens the app signed in as this worker's own test account, emptied of any data left by a
+ * previous test, so the test starts from a brand-new account. Created on first use.
+ */
+export async function registerAndLogin(page: Page): Promise<TestUser> {
+  workerAccount ??= await createAccount();
+  await resetAccountData(workerAccount.token);
+  await signIn(page, workerAccount.token);
+  return workerAccount.user;
+}
+
+/**
+ * Creates a brand-new account and signs the page in as it, leaving the worker's account alone.
+ * For tests that would alter their account: password changes, etc.
  */
 export async function registerFreshUser(page: Page): Promise<TestUser> {
-  const user = uniqueUser();
-  const { token } = await api("POST", "/auth/register", undefined, user);
-
-  await page.goto("/");
-  await page.evaluate((t) => localStorage.setItem("token", t), token);
-  await page.reload();
-  await expect(page.getByRole("heading", { name: "Suivi du temps" })).toBeVisible();
-  return user;
+  const account = await createAccount();
+  await signIn(page, account.token);
+  return account.user;
 }

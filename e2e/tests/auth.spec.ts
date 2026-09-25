@@ -1,10 +1,6 @@
 import { test, expect, Page } from "@playwright/test";
 import { registerViaUi, sharedUser, uniqueUser } from "./helpers";
 
-// These tests exercise the pages a visitor sees BEFORE signing in, so they start
-// logged out (the other specs start signed in as the shared test account).
-test.use({ storageState: { cookies: [], origins: [] } });
-
 /** Fills the login page with the given credentials and submits it. */
 async function submitLogin(page: Page, email: string, password: string) {
   await page.goto("/login");
@@ -21,6 +17,7 @@ test("registers a new account and lands on the time tracker", async ({ page }) =
 });
 
 // The login tests reuse the account the `setup` project created through the register page
+// (they only read it, so they are safe to run in parallel with the other tests)
 test("logs in with the account created at setup, logs out and back in", async ({ page }) => {
   const user = sharedUser();
   await submitLogin(page, user.email, user.password);

@@ -5,9 +5,11 @@ export default defineConfig({
   globalSetup: "./global-setup.ts",
   timeout: 30000,
   expect: { timeout: 10000 },
-  // One worker: all tests share the same test account (see tests/helpers.ts)
-  fullyParallel: false,
-  workers: 1,
+  // Tests run in parallel. Each worker (= one browser process) has its own test account,
+  // emptied before every test, so tests never see each other's data (see tests/helpers.ts).
+  // Every browser costs ~200 MB: lower E2E_WORKERS if Docker runs out of memory.
+  fullyParallel: true,
+  workers: Number(process.env.E2E_WORKERS) || 3,
   retries: 0,
   reporter: [["list"]],
   use: {
@@ -16,13 +18,8 @@ export default defineConfig({
     screenshot: "only-on-failure",
   },
   projects: [
-    // Creates the shared account first; if it fails, the "app" project is not run at all
+    // Creates the test account used by the login tests first; if it fails, nothing else runs
     { name: "setup", testMatch: /auth\.setup\.ts/ },
-    {
-      name: "app",
-      testIgnore: /auth\.setup\.ts/,
-      dependencies: ["setup"],
-      use: { storageState: "./.auth/user.json" },
-    },
+    { name: "app", testIgnore: /auth\.setup\.ts/, dependencies: ["setup"] },
   ],
 });
