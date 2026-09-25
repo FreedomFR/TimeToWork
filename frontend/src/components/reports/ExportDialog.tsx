@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { TimeEntry } from "../../api/types";
 import {
   CONTENT_LABELS,
@@ -11,6 +11,7 @@ import {
   exportFilename,
   exportTable,
 } from "../../utils/export";
+import Modal from "../ui/Modal";
 import { IconDownload } from "../icons";
 
 interface Props {
@@ -49,15 +50,6 @@ export default function ExportDialog({
   const [columns, setColumns] = useState<DetailColumnKey[]>(DEFAULT_COLUMNS);
   const [format, setFormat] = useState<ExportFormat>("csv");
 
-  useEffect(() => {
-    if (!open) return;
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
-
   if (!open) return null;
 
   const detailed = content === "detailed";
@@ -77,24 +69,26 @@ export default function ExportDialog({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
-      onMouseDown={(e) => e.target === e.currentTarget && onClose()}
+    <Modal
+      title="Exporter le rapport"
+      subtitle={`${periodLabel} · ${entries.length} entrée(s) après filtres`}
+      onClose={onClose}
+      footer={
+        <>
+          <button onClick={onClose} className="px-4 py-2 text-sm rounded text-gray-300 hover:bg-surfaceAlt">
+            Annuler
+          </button>
+          <button
+            onClick={handleExport}
+            disabled={!canExport}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded bg-accent hover:bg-accentDark text-white disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <IconDownload className="w-4 h-4" />
+            Exporter
+          </button>
+        </>
+      }
     >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label="Exporter le rapport"
-        className="w-full max-w-lg max-h-[90vh] overflow-y-auto bg-surface border border-border rounded-lg shadow-xl"
-      >
-        <div className="px-5 py-4 border-b border-border">
-          <h2 className="text-base font-semibold text-gray-100">Exporter le rapport</h2>
-          <p className="text-xs text-muted mt-1">
-            {periodLabel} · {entries.length} entrée(s) après filtres
-          </p>
-        </div>
-
-        <div className="px-5 py-4 space-y-5">
           <fieldset>
             <legend className="text-xs text-muted mb-2">CONTENU À EXPORTER</legend>
             <div className="space-y-1.5">
@@ -182,25 +176,6 @@ export default function ExportDialog({
           {entries.length === 0 && (
             <p className="text-xs text-muted">Aucune donnée à exporter pour cette période et ces filtres.</p>
           )}
-        </div>
-
-        <div className="px-5 py-4 border-t border-border flex items-center justify-end gap-2">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-sm rounded text-gray-300 hover:bg-surfaceAlt"
-          >
-            Annuler
-          </button>
-          <button
-            onClick={handleExport}
-            disabled={!canExport}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded bg-accent hover:bg-accentDark text-white disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <IconDownload className="w-4 h-4" />
-            Exporter
-          </button>
-        </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

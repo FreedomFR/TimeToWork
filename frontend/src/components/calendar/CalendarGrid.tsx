@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { TimeEntry } from "../../api/types";
 import { CalendarDay, CalendarEvent, MINUTES_PER_DAY } from "../../utils/calendar";
 import { NEUTRAL_COLOR, NO_DESCRIPTION_LABEL } from "../../utils/constants";
 import { durationSeconds, formatClock, formatDuration, sameDay } from "../../utils/time";
@@ -13,6 +14,8 @@ interface Props {
   /** Whether the zoom buttons can still go further in each direction. */
   canZoomIn: boolean;
   canZoomOut: boolean;
+  /** Called when a block is clicked (or activated with Enter / Space). */
+  onSelectEntry: (entry: TimeEntry) => void;
 }
 
 const HOURS = Array.from({ length: 24 }, (_, h) => h);
@@ -30,7 +33,15 @@ function dayHeaderLabel(d: Date): string {
 }
 
 /** One entry block, absolutely positioned in its day column. */
-function EventBlock({ event, hourHeight }: { event: CalendarEvent; hourHeight: number }) {
+function EventBlock({
+  event,
+  hourHeight,
+  onSelect,
+}: {
+  event: CalendarEvent;
+  hourHeight: number;
+  onSelect: (entry: TimeEntry) => void;
+}) {
   const { entry, startMin, endMin, column, columns } = event;
   const color = entry.project?.color || NEUTRAL_COLOR;
   const seconds = durationSeconds(entry.start, entry.end);
@@ -50,8 +61,17 @@ function EventBlock({ event, hourHeight }: { event: CalendarEvent; hourHeight: n
   return (
     <div
       data-testid="calendar-event"
+      role="button"
+      tabIndex={0}
       title={tooltip}
-      className="absolute px-0.5"
+      onClick={() => onSelect(entry)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onSelect(entry);
+        }
+      }}
+      className="absolute px-0.5 cursor-pointer group focus:outline-none"
       style={{
         top: (startMin / 60) * hourHeight,
         height,
@@ -60,7 +80,7 @@ function EventBlock({ event, hourHeight }: { event: CalendarEvent; hourHeight: n
       }}
     >
       <div
-        className="relative h-full overflow-hidden rounded-sm bg-bg text-xs text-gray-200 px-2 py-1"
+        className="relative h-full overflow-hidden rounded-sm bg-bg text-xs text-gray-200 px-2 py-1 group-hover:brightness-125 group-focus-visible:ring-2 group-focus-visible:ring-accent"
         style={{ borderLeft: `3px solid ${color}` }}
       >
         <div className="flex items-start justify-between gap-2">
@@ -93,7 +113,15 @@ function EventBlock({ event, hourHeight }: { event: CalendarEvent; hourHeight: n
  * Header (day + total) and the zoom corner stay pinned while the grid scrolls;
  * on load the grid scrolls to just above the earliest entry.
  */
-export default function CalendarGrid({ days, hourHeight, onZoomIn, onZoomOut, canZoomIn, canZoomOut }: Props) {
+export default function CalendarGrid({
+  days,
+  hourHeight,
+  onZoomIn,
+  onZoomOut,
+  canZoomIn,
+  canZoomOut,
+  onSelectEntry,
+}: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const now = new Date();
   const nowMin = now.getHours() * 60 + now.getMinutes();
@@ -179,7 +207,7 @@ export default function CalendarGrid({ days, hourHeight, onZoomIn, onZoomOut, ca
               ))}
 
               {day.events.map((event) => (
-                <EventBlock key={event.entry.id} event={event} hourHeight={hourHeight} />
+                <EventBlock key={event.entry.id} event={event} hourHeight={hourHeight} onSelect={onSelectEntry} />
               ))}
 
               {sameDay(day.date, now) && (

@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { Tag } from "../api/types";
 import { useClickOutside } from "../hooks/useClickOutside";
-import { IconTag } from "./icons";
+import { IconChevronDown, IconTag } from "./icons";
 
 interface Props {
   tags: Tag[];
@@ -10,6 +10,8 @@ interface Props {
   onCreateTag: (name: string) => Promise<Tag>;
   emptyLabel?: string;
   buttonClassName?: string;
+  /** Behave like a form field: fill the parent's width (trigger and menu) and show a chevron. */
+  fullWidth?: boolean;
 }
 
 /**
@@ -23,6 +25,7 @@ export default function TagSelect({
   onCreateTag,
   emptyLabel,
   buttonClassName,
+  fullWidth = false,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -49,7 +52,7 @@ export default function TagSelect({
   const exactMatch = tags.some((t) => t.name.toLowerCase() === query.trim().toLowerCase());
 
   return (
-    <div className="relative shrink-0" ref={ref}>
+    <div className={`relative ${fullWidth ? "w-full" : "shrink-0"}`} ref={ref}>
       <button
         type="button"
         title="Tags"
@@ -72,10 +75,15 @@ export default function TagSelect({
         ) : (
           emptyLabel && <span className="truncate">{emptyLabel}</span>
         )}
+        {fullWidth && <IconChevronDown className="w-3.5 h-3.5 text-muted shrink-0" />}
       </button>
 
       {open && (
-        <div className="absolute z-20 mt-1 w-64 bg-surface border border-border rounded shadow-lg">
+        <div
+          className={`absolute z-20 mt-1 bg-surface border border-border rounded shadow-lg ${
+            fullWidth ? "left-0 right-0" : "w-64"
+          }`}
+        >
           <div className="p-2 border-b border-border">
             <input
               autoFocus
@@ -83,6 +91,12 @@ export default function TagSelect({
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !exactMatch) handleCreate();
+                // Escape closes only this menu, not a modal it may be displayed in
+                if (e.key === "Escape") {
+                  e.stopPropagation();
+                  setOpen(false);
+                  setQuery("");
+                }
               }}
               placeholder="Rechercher ou créer un tag"
               className="w-full bg-surfaceAlt border border-border rounded px-2 py-1.5 text-sm text-gray-200 placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent"

@@ -1,8 +1,11 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { api } from "../api/client";
+import { EntryPatch, Project, Tag, TimeEntry } from "../api/types";
 import { useTimeEntries } from "../hooks/useTimeEntries";
 import { buildCalendarDays, daysFrom } from "../utils/calendar";
 import { PeriodUnit, periodRange } from "../utils/time";
 import CalendarGrid from "../components/calendar/CalendarGrid";
+import EditEntryDialog from "../components/calendar/EditEntryDialog";
 import PeriodPicker from "../components/reports/PeriodPicker";
 import ScopeBadge from "../components/ui/ScopeBadge";
 
@@ -17,7 +20,8 @@ const DEFAULT_ZOOM_INDEX = 2;
 /**
  * Calendar view: the week (Monday–Sunday) or a single day laid out on a time grid,
  * each entry drawn as a block at its real start time with a height proportional to
- * its duration. Overlapping entries sit side by side.
+ * its duration. Overlapping entries sit side by side. Clicking a block opens the
+ * "Modifier le créneau" dialog to edit or delete the entry.
  */
 export default function Calendar() {
   const [view, setView] = useState<View>("week");
@@ -27,7 +31,35 @@ export default function Calendar() {
   // The view doubles as the period unit ("week" / "day"), so the picker's arrows step accordingly
   const unit: PeriodUnit = view;
   const [from, to] = periodRange(unit, anchor);
-  const { entries, loading } = useTimeEntries(from, to);
+  const { entries, setEntries, loading } = useTimeEntries(from, to);
+
+  // Data needed by the edit dialog
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [tags, setTags] = useState<Tag[]>([]);
+  const [editing, setEditing] = useState<TimeEntry | null>(null);
+
+  useEffect(() => {
+    Promise.all([api.get("/projects"), api.get("/tags")]).then(([p, t]) => {
+      setProjects(p.data);
+      setTags(t.data);
+    });
+  }, []);
+
+  async function handleSave(id: string, patch: EntryPatch) {
+    const res = await api.put(`/time-entries/${id}`, patch);
+    setEntries((prev) => prev.map((e) => (e.id === id ? res.data : e)));
+  }
+
+  async function handleDelete(id: string) {
+    await api.delete(`/time-entries/${id}`);
+    setEntries((prev) => prev.filter((e) => e.id !== id));
+  }
+
+  async function handleCreateTag(name: string): Promise<Tag> {
+    const res = await api.post("/tags", { name });
+    setTags((prev) => [...prev, res.data]);
+    return res.data;
+  }
 
   const days = useMemo(
     () => buildCalendarDays(entries, daysFrom(from, view === "week" ? 7 : 1)),
@@ -79,6 +111,20 @@ export default function Calendar() {
           canZoomOut={zoomIndex > 0}
           onZoomIn={() => setZoomIndex((i) => Math.min(HOUR_HEIGHTS.length - 1, i + 1))}
           onZoomOut={() => setZoomIndex((i) => Math.max(0, i - 1))}
+          onSelectEntry={setEditing}
+        />
+      )}
+
+      {editing && (
+        <EditEntryDialog
+          key={editing.id}
+          entry={editing}
+          projects={projects}
+          tags={tags}
+          onSave={handleSave}
+          onDelete={handleDelete}
+          onCreateTag={handleCreateTag}
+          onClose={() => setEditing(null)}
         />
       )}
     </div>

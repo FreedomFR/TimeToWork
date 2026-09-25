@@ -28,7 +28,7 @@ Crée un compte depuis l'écran d'inscription, puis crée tes projets/clients et
 - Entrées de temps regroupées par jour avec total quotidien
 - Gestion des projets (couleur, client associé, archivage)
 - Gestion des clients
-- Calendrier (semaine ou jour) : entrées placées à leur heure réelle, chevauchements côte à côte, zoom
+- Calendrier (semaine ou jour) : entrées placées à leur heure réelle, chevauchements côte à côte, zoom ; un clic ouvre "Modifier le créneau" (dates, heures, durée, description, projet, balises, suppression)
 - Tableau de bord : temps total, projet/client principal, histogramme par jour, répartition par projet, activités les plus suivies
 - Rapports (Résumé, Détaillé, Hebdomadaire) avec filtres, plage de dates personnalisée, arrondi au quart d'heure
 - Export des rapports en CSV, Excel, PDF ou JSON (contenu et colonnes au choix)
@@ -97,7 +97,7 @@ Le projet a deux suites de tests, à lancer après avoir démarré la stack (`do
 docker compose -f docker-compose.yml -f docker-compose.test.yml run --rm backend-test
 ```
 
-**End-to-end (60 tests)** — Playwright, qui pilote un vrai navigateur contre l'application complète (inscription, connexion, minuteur, saisie manuelle, tags, projets/clients, édition en ligne, calendrier, tableau de bord, rapports, export, mot de passe oublié, mode DEV) :
+**End-to-end (68 tests)** — Playwright, qui pilote un vrai navigateur contre l'application complète (inscription, connexion, minuteur, saisie manuelle, tags, projets/clients, édition en ligne, calendrier, tableau de bord, rapports, export, mot de passe oublié, mode DEV) :
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.test.yml build frontend-test
