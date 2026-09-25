@@ -8,8 +8,10 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-timetowork}
     volumes:
       - db_data:/var/lib/postgresql/data
+    # Bound to this machine only: published on every interface, anyone on the network could
+    # reach the database with the default credentials.
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-timetowork}"]
       interval: 5s
@@ -35,8 +37,9 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASS: ${SMTP_PASS:-}
       SMTP_FROM: ${SMTP_FROM:-}
+    # Loopback only (see the database above); DEV_MODE would otherwise let the whole network log in as anyone
     ports:
-      - "4000:4000"
+      - "127.0.0.1:4000:4000"
 
   frontend:
     build:
@@ -47,7 +50,7 @@ services:
     depends_on:
       - backend
     ports:
-      - "8080:80"
+      - "127.0.0.1:8080:80"
 
 volumes:
   db_data:

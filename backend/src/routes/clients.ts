@@ -3,6 +3,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/prisma";
 import { notFound, parseBody } from "../lib/http";
+import { nameField } from "../lib/schemas";
 import { requireAuth, AuthRequest } from "../middleware/auth";
 
 const router = Router();
@@ -17,7 +18,7 @@ router.get("/", async (req: AuthRequest, res) => {
 });
 
 const createSchema = z.object({
-  name: z.string().min(1),
+  name: nameField,
 });
 
 router.post("/", async (req: AuthRequest, res) => {
@@ -31,7 +32,7 @@ router.post("/", async (req: AuthRequest, res) => {
 });
 
 const updateSchema = z.object({
-  name: z.string().min(1).optional(),
+  name: nameField.optional(),
   archived: z.boolean().optional(),
 });
 

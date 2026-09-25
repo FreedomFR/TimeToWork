@@ -55,7 +55,7 @@ export default function ResetPassword() {
             label="Nouveau mot de passe"
             type="password"
             required
-            minLength={6}
+            minLength={8}
             value={password}
             onChange={setPassword}
           />
@@ -64,7 +64,7 @@ export default function ResetPassword() {
             label="Confirmer le mot de passe"
             type="password"
             required
-            minLength={6}
+            minLength={8}
             value={confirmPassword}
             onChange={setConfirmPassword}
           />

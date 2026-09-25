@@ -1,7 +1,8 @@
 /** Server-side aggregated reports. */
 import { Router } from "express";
 import { prisma } from "../lib/prisma";
-import { startRangeFilter } from "../lib/http";
+import { parseBody, startRangeFilter } from "../lib/http";
+import { dateRangeQuery } from "../lib/schemas";
 import { requireAuth, AuthRequest } from "../middleware/auth";
 
 const router = Router();
@@ -20,10 +21,11 @@ interface ProjectTotal {
 // Summary report: total duration grouped by project for a date range.
 // Running timers (no end yet) are excluded.
 router.get("/summary", async (req: AuthRequest, res) => {
-  const { from, to } = req.query as { from?: string; to?: string };
+  const query = parseBody(dateRangeQuery, req.query, res);
+  if (!query) return;
 
   const entries = await prisma.timeEntry.findMany({
-    where: { userId: req.userId!, end: { not: null }, start: startRangeFilter(from, to) },
+    where: { userId: req.userId!, end: { not: null }, start: startRangeFilter(query.from, query.to) },
     include: { project: true },
   });
 

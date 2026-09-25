@@ -157,9 +157,20 @@ export function buildTable(content: ExportContent, entries: TimeEntry[], opts: B
   };
 }
 
+/**
+ * Spreadsheets run a cell as a formula when its text starts with `=`, `+`, `-`, `@` (or a tab /
+ * carriage return). A description like `=HYPERLINK("http://evil","click")` typed into the app
+ * would then execute when the exported CSV is opened in Excel. A leading apostrophe makes the
+ * spreadsheet treat the cell as plain text. Numbers are left alone (a negative number is not text).
+ */
+function neutralizeFormula(cell: Cell): string {
+  const text = String(cell);
+  return typeof cell === "string" && /^[=+\-@\t\r]/.test(text) ? `'${text}` : text;
+}
+
 /** UTF-8 CSV (with BOM so Excel detects the encoding), every cell quoted, comma-separated. */
 export function toCsv(table: Table): string {
-  const quote = (cell: Cell) => `"${String(cell).replace(/"/g, '""')}"`;
+  const quote = (cell: Cell) => `"${neutralizeFormula(cell).replace(/"/g, '""')}"`;
   const lines = [table.headers, ...table.rows].map((r) => r.map(quote).join(","));
   return "﻿" + lines.join("\n");
 }

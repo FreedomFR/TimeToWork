@@ -71,6 +71,27 @@ frontend/src
 
 Principe : les calculs (durées, regroupements, totaux) vivent dans `utils/` en fonctions pures ; les pages ne gèrent que l'état et l'enchaînement des appels API ; les composants ne font que de l'affichage.
 
+## Sécurité
+
+Mesures en place (chacune a un test de non-régression, voir `backend/tests/security.test.ts` et `e2e/tests/security.spec.ts`) :
+
+- **Isolation des données** : chaque ligne appartient à un utilisateur ; on ne peut ni lire, ni modifier, ni **référencer** le projet, le client ou la balise d'un autre (réponse 400 identique qu'il existe ou non).
+- **Authentification** : mots de passe hachés (bcrypt), 8 à 72 caractères ; jetons JWT limités à HS256 ; jeton de réinitialisation aléatoire, stocké haché, valable 1 h, à usage unique ; un changement de mot de passe annule le lien en attente ; durée de réponse identique que l'email existe ou non.
+- **Limitation de débit** : 10 mauvais mots de passe par compte et par adresse / 15 min, 100 par adresse ; 3 emails de réinitialisation par adresse et par heure ; tentatives de changement de mot de passe limitées. Désactivable avec `RATE_LIMIT_DISABLED=true` (tests uniquement).
+- **Validation des entrées** : dates, longueurs, couleurs `#rrggbb`, fin ≥ début ; corps JSON limité à 100 Ko.
+- **Robustesse** : une erreur (base de données…) dans une route renvoie un 500 générique au lieu de faire tomber le serveur, sans fuite de détails.
+- **En-têtes** : `helmet` côté API ; côté site, CSP (`script-src 'self'`), `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy`.
+- **Exports** : les cellules CSV commençant par `=`, `+`, `-`, `@` sont neutralisées (injection de formules Excel).
+- **Réseau** : les ports 5432, 4000 et 8080 ne sont exposés que sur `127.0.0.1`. Ils étaient auparavant accessibles à tout le réseau, base de données comprise.
+
+À faire de votre côté :
+
+- **`JWT_SECRET`** : remplacez la valeur par défaut par un secret aléatoire (`openssl rand -hex 32`). Avec la valeur par défaut, n'importe qui connaissant le dépôt peut fabriquer une session valide. Avec `DEV_MODE=false` le serveur refuse de démarrer sur une valeur faible ; avec `DEV_MODE=true` il affiche seulement un avertissement.
+- **`DEV_MODE`** : à laisser à `false` dès que l'instance n'est pas strictement locale.
+- **`POSTGRES_PASSWORD`** : changez-le si la base peut être atteinte autrement que depuis votre machine.
+
+Limites connues : les sessions (JWT, 30 jours) ne sont pas révocables individuellement ; l'inscription révèle si un email existe déjà (comportement courant) ; les compteurs de limitation sont en mémoire (un seul processus backend).
+
 ## Développement sans Docker
 
 ```bash
@@ -92,13 +113,13 @@ Nécessite une instance PostgreSQL locale et un fichier `.env` dans `backend/` a
 
 Le projet a deux suites de tests, à lancer après avoir démarré la stack (`docker compose up -d`) :
 
-**Backend (85 tests)** — tests d'intégration (Vitest + Supertest) qui couvrent auth, projets, clients, tags, entrées de temps et rapports, sur une base Postgres de test dédiée (`timetowork_test`, créée et migrée automatiquement) :
+**Backend (107 tests)** — tests d'intégration (Vitest + Supertest) qui couvrent auth, projets, clients, tags, entrées de temps et rapports, sur une base Postgres de test dédiée (`timetowork_test`, créée et migrée automatiquement) :
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.test.yml run --rm backend-test
 ```
 
-**End-to-end (73 tests)** — Playwright, qui pilote un vrai navigateur contre l'application complète (inscription, connexion, minuteur, saisie manuelle, tags, projets/clients, édition en ligne, calendrier, tableau de bord, rapports, export, mot de passe oublié, mode DEV) :
+**End-to-end (78 tests)** — Playwright, qui pilote un vrai navigateur contre l'application complète (inscription, connexion, minuteur, saisie manuelle, tags, projets/clients, édition en ligne, calendrier, tableau de bord, rapports, export, mot de passe oublié, mode DEV) :
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.test.yml build frontend-test

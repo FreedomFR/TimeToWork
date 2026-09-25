@@ -60,7 +60,8 @@ test("forgot-password shows a confirmation message without revealing whether the
   await page.getByRole("link", { name: "Mot de passe oublié ?" }).click();
   await expect(page).toHaveURL(/\/forgot-password/);
 
-  await page.locator('input[type="email"]').fill("someone-not-registered@example.com");
+  // A fresh address each run: reset emails are rate-limited per address
+  await page.locator('input[type="email"]').fill(`nobody-${Date.now()}@example.com`);
   await page.getByRole("button", { name: "Envoyer le lien" }).click();
 
   await expect(

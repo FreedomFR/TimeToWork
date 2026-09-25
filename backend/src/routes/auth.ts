@@ -10,6 +10,16 @@ import { prisma } from "../lib/prisma";
 import { notFound, parseBody } from "../lib/http";
 import { requireAuth, signToken, AuthRequest } from "../middleware/auth";
 import { sendPasswordResetEmail } from "../lib/mailer";
+import {
+  changePasswordLimiter,
+  forgotPasswordByEmailLimiter,
+  forgotPasswordByIpLimiter,
+  loginByAccountLimiter,
+  loginByIpLimiter,
+  registerLimiter,
+  resetPasswordLimiter,
+} from "../lib/rateLimit";
+import { nameField, newPasswordField } from "../lib/schemas";
 
 const APP_URL = process.env.APP_URL || "http://localhost:8080";
 const RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
@@ -17,6 +27,9 @@ const BCRYPT_ROUNDS = 10;
 // Same message for "unknown email" and "wrong password" so accounts can't be probed.
 const INVALID_CREDENTIALS = "Email ou mot de passe incorrect";
 const WRONG_CURRENT_PASSWORD = "Mot de passe actuel incorrect";
+// Compared against when the email is unknown, so a login takes as long whether or not the
+// account exists (otherwise response time would reveal which emails are registered).
+const DUMMY_HASH = bcrypt.hashSync("unused-password-for-timing", BCRYPT_ROUNDS);
 
 /** Read lazily (not cached at module load) so it can be toggled at runtime in tests. */
 function isDevMode() {
@@ -43,12 +56,12 @@ const router = Router();
 // ─── Register / login ──────────────────────────────────────────────────────
 
 const registerSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(6),
-  name: z.string().min(1),
+  email: z.string().email().max(254),
+  password: newPasswordField,
+  name: nameField,
 });
 
-router.post("/register", async (req, res) => {
+router.post("/register", registerLimiter, async (req, res) => {
   const data = parseBody(registerSchema, req.body, res);
   if (!data) return;
 
@@ -68,16 +81,17 @@ router.post("/register", async (req, res) => {
 });
 
 const loginSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(1),
+  email: z.string().email().max(254),
+  password: z.string().min(1).max(128),
 });
 
-router.post("/login", async (req, res) => {
+router.post("/login", loginByIpLimiter, loginByAccountLimiter, async (req, res) => {
   const data = parseBody(loginSchema, req.body, res);
   if (!data) return;
 
   const user = await prisma.user.findUnique({ where: { email: data.email } });
-  if (!user || !(await bcrypt.compare(data.password, user.password))) {
+  const passwordMatches = await bcrypt.compare(data.password, user ? user.password : DUMMY_HASH);
+  if (!user || !passwordMatches) {
     return res.status(401).json({ error: INVALID_CREDENTIALS });
   }
   res.json(session(user));
@@ -91,12 +105,12 @@ router.get("/me", requireAuth, async (req: AuthRequest, res) => {
 
 const changePasswordSchema = z.object({
   currentPassword: z.string().min(1),
-  newPassword: z.string().min(6),
+  newPassword: newPasswordField,
 });
 
 // Change the password of the signed-in user. The current password must be
 // re-entered so a stolen session token alone can't take over the account.
-router.post("/change-password", requireAuth, async (req: AuthRequest, res) => {
+router.post("/change-password", requireAuth, changePasswordLimiter, async (req: AuthRequest, res) => {
   const data = parseBody(changePasswordSchema, req.body, res);
   if (!data) return;
 
@@ -126,10 +140,10 @@ router.post("/change-password", requireAuth, async (req: AuthRequest, res) => {
 // ─── Password reset ────────────────────────────────────────────────────────
 
 const forgotPasswordSchema = z.object({
-  email: z.string().email(),
+  email: z.string().email().max(254),
 });
 
-router.post("/forgot-password", async (req, res) => {
+router.post("/forgot-password", forgotPasswordByIpLimiter, forgotPasswordByEmailLimiter, async (req, res) => {
   const data = parseBody(forgotPasswordSchema, req.body, res);
   if (!data) return;
 
@@ -155,11 +169,11 @@ router.post("/forgot-password", async (req, res) => {
 });
 
 const resetPasswordSchema = z.object({
-  token: z.string().min(1),
-  password: z.string().min(6),
+  token: z.string().min(1).max(200),
+  password: newPasswordField,
 });
 
-router.post("/reset-password", async (req, res) => {
+router.post("/reset-password", resetPasswordLimiter, async (req, res) => {
   const data = parseBody(resetPasswordSchema, req.body, res);
   if (!data) return;
 

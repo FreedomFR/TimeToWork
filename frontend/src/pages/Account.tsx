@@ -69,7 +69,7 @@ export default function Account() {
           label="Nouveau mot de passe"
           type="password"
           required
-          minLength={6}
+          minLength={8}
           autoComplete="new-password"
           value={newPassword}
           onChange={setNewPassword}
@@ -79,7 +79,7 @@ export default function Account() {
           label="Confirmer le nouveau mot de passe"
           type="password"
           required
-          minLength={6}
+          minLength={8}
           autoComplete="new-password"
           value={confirmPassword}
           onChange={setConfirmPassword}

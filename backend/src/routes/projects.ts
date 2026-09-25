@@ -3,6 +3,8 @@ import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/prisma";
 import { notFound, parseBody } from "../lib/http";
+import { foreignReference } from "../lib/ownership";
+import { colorField, nameField } from "../lib/schemas";
 import { requireAuth, AuthRequest } from "../middleware/auth";
 
 const router = Router();
@@ -20,14 +22,17 @@ router.get("/", async (req: AuthRequest, res) => {
 });
 
 const createSchema = z.object({
-  name: z.string().min(1),
-  color: z.string().optional(),
+  name: nameField,
+  color: colorField.optional(),
   clientId: z.string().uuid().nullable().optional(),
 });
 
 router.post("/", async (req: AuthRequest, res) => {
   const data = parseBody(createSchema, req.body, res);
   if (!data) return;
+
+  const problem = await foreignReference(req.userId!, { clientId: data.clientId });
+  if (problem) return res.status(400).json({ error: problem });
 
   const project = await prisma.project.create({
     data: {
@@ -42,8 +47,8 @@ router.post("/", async (req: AuthRequest, res) => {
 });
 
 const updateSchema = z.object({
-  name: z.string().min(1).optional(),
-  color: z.string().optional(),
+  name: nameField.optional(),
+  color: colorField.optional(),
   clientId: z.string().uuid().nullable().optional(),
   archived: z.boolean().optional(),
 });
@@ -56,6 +61,9 @@ router.put("/:id", async (req: AuthRequest, res) => {
 
   const data = parseBody(updateSchema, req.body, res);
   if (!data) return;
+
+  const problem = await foreignReference(req.userId!, { clientId: data.clientId });
+  if (problem) return res.status(400).json({ error: problem });
 
   // Only the fields actually sent are written, so two concurrent edits to
   // different fields (e.g. renaming while also changing the color) can't

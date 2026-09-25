@@ -7,6 +7,8 @@ import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "../lib/prisma";
 import { notFound, parseBody, startRangeFilter } from "../lib/http";
+import { foreignReference } from "../lib/ownership";
+import { dateField, dateRangeQuery, descriptionField, tagIdsField } from "../lib/schemas";
 import { requireAuth, AuthRequest } from "../middleware/auth";
 
 const router = Router();
@@ -37,10 +39,11 @@ function findOwnEntry(id: string, userId: string) {
 
 // List entries, optionally restricted to those starting within [from, to]
 router.get("/", async (req: AuthRequest, res) => {
-  const { from, to } = req.query as { from?: string; to?: string };
+  const query = parseBody(dateRangeQuery, req.query, res);
+  if (!query) return;
 
   const entries = await prisma.timeEntry.findMany({
-    where: { userId: req.userId!, start: startRangeFilter(from, to) },
+    where: { userId: req.userId!, start: startRangeFilter(query.from, query.to) },
     include,
     orderBy: { start: "desc" },
   });
@@ -59,9 +62,9 @@ router.get("/current", async (req: AuthRequest, res) => {
 
 /** Fields shared by the timer-start and manual-entry payloads. */
 const entryFields = {
-  description: z.string().optional().default(""),
+  description: descriptionField.optional().default(""),
   projectId: z.string().uuid().nullable().optional(),
-  tagIds: z.array(z.string().uuid()).optional().default([]),
+  tagIds: tagIdsField.optional().default([]),
   billable: z.boolean().optional().default(false),
 };
 
@@ -71,6 +74,9 @@ const startSchema = z.object(entryFields);
 router.post("/start", async (req: AuthRequest, res) => {
   const data = parseBody(startSchema, req.body, res);
   if (!data) return;
+
+  const problem = await foreignReference(req.userId!, { projectId: data.projectId, tagIds: data.tagIds });
+  if (problem) return res.status(400).json({ error: problem });
 
   // Only one timer may run at a time
   const running = await prisma.timeEntry.findFirst({
@@ -112,14 +118,20 @@ router.post("/:id/stop", async (req: AuthRequest, res) => {
 
 const manualSchema = z.object({
   ...entryFields,
-  start: z.string(),
-  end: z.string().nullable().optional(),
+  start: dateField,
+  end: dateField.nullable().optional(),
 });
 
 // Create a manual entry with explicit start/end times
 router.post("/", async (req: AuthRequest, res) => {
   const data = parseBody(manualSchema, req.body, res);
   if (!data) return;
+
+  if (data.end && new Date(data.end) < new Date(data.start)) {
+    return res.status(400).json({ error: "La fin doit être après le début" });
+  }
+  const problem = await foreignReference(req.userId!, { projectId: data.projectId, tagIds: data.tagIds });
+  if (problem) return res.status(400).json({ error: problem });
 
   const entry = await prisma.timeEntry.create({
     data: {
@@ -138,12 +150,12 @@ router.post("/", async (req: AuthRequest, res) => {
 
 /** Every field optional: only the ones sent are updated. */
 const updateSchema = z.object({
-  description: z.string().optional(),
+  description: descriptionField.optional(),
   projectId: z.string().uuid().nullable().optional(),
-  tagIds: z.array(z.string().uuid()).optional(),
+  tagIds: tagIdsField.optional(),
   billable: z.boolean().optional(),
-  start: z.string().optional(),
-  end: z.string().nullable().optional(),
+  start: dateField.optional(),
+  end: dateField.nullable().optional(),
 });
 
 // Edit an entry (partial update)
@@ -153,6 +165,15 @@ router.put("/:id", async (req: AuthRequest, res) => {
 
   const data = parseBody(updateSchema, req.body, res);
   if (!data) return;
+
+  // Validate the resulting range, mixing the fields sent with those already stored
+  const newStart = data.start ? new Date(data.start) : existing.start;
+  const newEnd = data.end === undefined ? existing.end : data.end ? new Date(data.end) : null;
+  if (newEnd && newEnd < newStart) {
+    return res.status(400).json({ error: "La fin doit être après le début" });
+  }
+  const problem = await foreignReference(req.userId!, { projectId: data.projectId, tagIds: data.tagIds });
+  if (problem) return res.status(400).json({ error: problem });
 
   // When tags are sent they replace the previous set entirely
   if (data.tagIds) {
