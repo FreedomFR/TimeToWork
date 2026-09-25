@@ -64,3 +64,38 @@ function identityKey(entry: TimeEntry): string {
 export function groupIdenticalEntries(dayEntries: TimeEntry[]): TimeEntry[][] {
   return Array.from(groupBy(dayEntries, identityKey).values()).sort((a, b) => startMs(b[0]) - startMs(a[0]));
 }
+
+/** Largest pause (ms) still considered "no pause" between two entries of the same mission. */
+const MAX_MERGE_GAP_MS = 60_000;
+
+/**
+ * True when `later` starts right when `earlier` ends (a pause of at most a minute, or an
+ * overlap), i.e. the two look like one continuous piece of work that was split in two.
+ */
+export function areContiguous(earlier: TimeEntry, later: TimeEntry): boolean {
+  if (!earlier.end) return false;
+  return new Date(later.start).getTime() - new Date(earlier.end).getTime() <= MAX_MERGE_GAP_MS;
+}
+
+/**
+ * Finds the runs of consecutive entries (given in chronological order) that follow each other
+ * without a pause. Only runs of two or more are returned; each is a candidate for merging.
+ */
+export function contiguousRuns(chronological: TimeEntry[]): TimeEntry[][] {
+  const runs: TimeEntry[][] = [];
+  let run: TimeEntry[] = [];
+  let runEnd = 0; // latest end within the current run, so a nested entry can't break the chain
+
+  for (const entry of chronological) {
+    const startsRight = run.length > 0 && new Date(entry.start).getTime() - runEnd <= MAX_MERGE_GAP_MS;
+    if (!startsRight) {
+      if (run.length >= 2) runs.push(run);
+      run = [];
+      runEnd = 0;
+    }
+    run.push(entry);
+    runEnd = Math.max(runEnd, entry.end ? new Date(entry.end).getTime() : Infinity);
+  }
+  if (run.length >= 2) runs.push(run);
+  return runs;
+}

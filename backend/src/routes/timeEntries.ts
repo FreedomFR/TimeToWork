@@ -1,5 +1,5 @@
 /**
- * Time entries: listing, timer start/stop, manual entries, edit and delete.
+ * Time entries: listing, timer start/stop, manual entries, edit, merge and delete.
  * An entry with `end === null` is the currently running timer.
  */
 import { Router } from "express";
@@ -173,6 +173,52 @@ router.put("/:id", async (req: AuthRequest, res) => {
     include,
   });
   res.json(serialize(updated));
+});
+
+const mergeSchema = z.object({
+  ids: z.array(z.string().uuid()).min(2).max(100),
+});
+
+/** What makes two entries "the same mission": merging them loses no information. */
+function identityOf(entry: EntryWithRelations): string {
+  const tagKey = entry.tags.map((link) => link.tagId).sort().join(",");
+  return [entry.description, entry.projectId ?? "", entry.billable, tagKey].join("|");
+}
+
+// Merge several finished entries of the same mission into one. The earliest entry is kept
+// and stretched to the latest end; the others are deleted, all in one transaction.
+router.post("/merge", async (req: AuthRequest, res) => {
+  const data = parseBody(mergeSchema, req.body, res);
+  if (!data) return;
+
+  const ids = Array.from(new Set(data.ids));
+  if (ids.length < 2) return res.status(400).json({ error: "Il faut au moins deux créneaux à fusionner" });
+
+  const entries = await prisma.timeEntry.findMany({
+    where: { id: { in: ids }, userId: req.userId! },
+    include,
+    orderBy: { start: "asc" },
+  });
+  // A missing id, or one belonging to someone else, is reported as not found
+  if (entries.length !== ids.length) return notFound(res);
+
+  if (entries.some((e) => e.end === null)) {
+    return res.status(400).json({ error: "Un créneau en cours ne peut pas être fusionné" });
+  }
+  if (new Set(entries.map(identityOf)).size > 1) {
+    return res
+      .status(400)
+      .json({ error: "Seuls des créneaux identiques (description, projet, balises, facturable) peuvent être fusionnés" });
+  }
+
+  const [kept, ...others] = entries;
+  const latestEnd = new Date(Math.max(...entries.map((e) => e.end!.getTime())));
+
+  const [merged] = await prisma.$transaction([
+    prisma.timeEntry.update({ where: { id: kept.id }, data: { end: latestEnd }, include }),
+    prisma.timeEntry.deleteMany({ where: { id: { in: others.map((e) => e.id) } } }),
+  ]);
+  res.json(serialize(merged));
 });
 
 router.delete("/:id", async (req: AuthRequest, res) => {

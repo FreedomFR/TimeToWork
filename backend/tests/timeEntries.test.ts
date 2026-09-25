@@ -283,3 +283,115 @@ describe("time entries: delete", () => {
     expect(res.status).toBe(404);
   });
 });
+
+describe("time entries: merge", () => {
+  const at = (hhmm: string) => `2026-09-23T${hhmm}:00.000Z`;
+
+  async function createEntry(
+    token: string,
+    start: string,
+    end: string | null,
+    overrides: Record<string, unknown> = {}
+  ) {
+    const res = await authed(token)
+      .post("/api/time-entries")
+      .send({ description: "Impression étiquette", start: at(start), end: end ? at(end) : null, ...overrides });
+    expect(res.status).toBe(201);
+    return res.body as { id: string };
+  }
+
+  it("merges contiguous entries into the earliest one, stretched to the latest end", async () => {
+    const { token } = await registerUser();
+    const a = await createEntry(token, "08:45", "10:00");
+    const b = await createEntry(token, "10:00", "12:00");
+
+    const res = await authed(token).post("/api/time-entries/merge").send({ ids: [b.id, a.id] });
+
+    expect(res.status).toBe(200);
+    expect(res.body.id).toBe(a.id);
+    expect(res.body.start).toBe(at("08:45"));
+    expect(res.body.end).toBe(at("12:00"));
+
+    const list = await authed(token).get("/api/time-entries");
+    expect(list.body).toHaveLength(1);
+    expect(list.body[0].id).toBe(a.id);
+  });
+
+  it("merges more than two entries at once", async () => {
+    const { token } = await registerUser();
+    const a = await createEntry(token, "07:50", "08:45");
+    const b = await createEntry(token, "08:45", "10:00");
+    const c = await createEntry(token, "10:00", "12:00");
+
+    const res = await authed(token).post("/api/time-entries/merge").send({ ids: [a.id, b.id, c.id] });
+
+    expect(res.status).toBe(200);
+    expect(res.body.start).toBe(at("07:50"));
+    expect(res.body.end).toBe(at("12:00"));
+    expect((await authed(token).get("/api/time-entries")).body).toHaveLength(1);
+  });
+
+  it("keeps project, tags and billable of the merged entries", async () => {
+    const { token } = await registerUser();
+    const { project, tag } = await setupProjectAndTag(token);
+    const extra = { projectId: project.id, tagIds: [tag.id], billable: true };
+    const a = await createEntry(token, "09:00", "10:00", extra);
+    const b = await createEntry(token, "10:00", "11:00", extra);
+
+    const res = await authed(token).post("/api/time-entries/merge").send({ ids: [a.id, b.id] });
+
+    expect(res.status).toBe(200);
+    expect(res.body.project.id).toBe(project.id);
+    expect(res.body.billable).toBe(true);
+    expect(res.body.tags.map((t: { id: string }) => t.id)).toEqual([tag.id]);
+  });
+
+  it("refuses entries that are not the same mission, and changes nothing", async () => {
+    const { token } = await registerUser();
+    const { project } = await setupProjectAndTag(token);
+    const a = await createEntry(token, "09:00", "10:00");
+    const otherDescription = await createEntry(token, "10:00", "11:00", { description: "Autre chose" });
+    const otherProject = await createEntry(token, "11:00", "12:00", { projectId: project.id });
+
+    for (const other of [otherDescription, otherProject]) {
+      const res = await authed(token).post("/api/time-entries/merge").send({ ids: [a.id, other.id] });
+      expect(res.status).toBe(400);
+    }
+    expect((await authed(token).get("/api/time-entries")).body).toHaveLength(3);
+  });
+
+  it("refuses a running entry", async () => {
+    const { token } = await registerUser();
+    const finished = await createEntry(token, "09:00", "10:00");
+    const running = await createEntry(token, "10:00", null);
+
+    const res = await authed(token).post("/api/time-entries/merge").send({ ids: [finished.id, running.id] });
+    expect(res.status).toBe(400);
+  });
+
+  it("needs at least two distinct entries", async () => {
+    const { token } = await registerUser();
+    const a = await createEntry(token, "09:00", "10:00");
+
+    expect((await authed(token).post("/api/time-entries/merge").send({ ids: [a.id] })).status).toBe(400);
+    expect((await authed(token).post("/api/time-entries/merge").send({ ids: [a.id, a.id] })).status).toBe(400);
+    expect((await authed(token).post("/api/time-entries/merge").send({ ids: [] })).status).toBe(400);
+  });
+
+  it("cannot merge someone else's entries", async () => {
+    const owner = await registerUser();
+    const intruder = await registerUser();
+    const a = await createEntry(owner.token, "09:00", "10:00");
+    const b = await createEntry(owner.token, "10:00", "11:00");
+
+    const res = await authed(intruder.token).post("/api/time-entries/merge").send({ ids: [a.id, b.id] });
+
+    expect(res.status).toBe(404);
+    expect((await authed(owner.token).get("/api/time-entries")).body).toHaveLength(2);
+  });
+
+  it("requires authentication", async () => {
+    const res = await request(app).post("/api/time-entries/merge").send({ ids: [] });
+    expect(res.status).toBe(401);
+  });
+});

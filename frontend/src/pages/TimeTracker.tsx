@@ -83,6 +83,15 @@ export default function TimeTracker() {
     if (running?.id === id) setRunning(null);
   }
 
+  // Merges finished entries of the same mission: the server keeps the earliest and deletes the rest
+  async function handleMerge(ids: string[]) {
+    const res = await api.post("/time-entries/merge", { ids });
+    const merged: TimeEntry = res.data;
+    setEntries((prev) =>
+      prev.filter((e) => e.id === merged.id || !ids.includes(e.id)).map((e) => (e.id === merged.id ? merged : e))
+    );
+  }
+
   async function handleUpdate(id: string, patch: EntryPatch) {
     const res = await api.put(`/time-entries/${id}`, patch);
     replaceEntry(res.data);
@@ -143,6 +152,7 @@ export default function TimeTracker() {
                       onDelete={handleDelete}
                       onUpdate={handleUpdate}
                       onCreateTag={handleCreateTag}
+                      onMerge={handleMerge}
                     />
                   ))}
                 </div>

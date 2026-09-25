@@ -6,11 +6,11 @@ import ProjectSelect from "./ProjectSelect";
 import TagSelect from "./TagSelect";
 import BillableToggle from "./BillableToggle";
 import TimeInput from "./TimeInput";
-import ActionMenu from "./ui/ActionMenu";
+import ActionMenu, { ActionMenuItem } from "./ui/ActionMenu";
 import DatePickerButton from "./ui/DatePickerButton";
 import DurationInput from "./ui/DurationInput";
 import { INLINE_INPUT_CLASS } from "./ui/styles";
-import { IconPlay, IconTrash } from "./icons";
+import { IconMerge, IconPlay, IconTrash } from "./icons";
 
 interface Props {
   entry: TimeEntry;
@@ -20,6 +20,9 @@ interface Props {
   onDelete: (id: string) => void;
   onUpdate: (id: string, patch: EntryPatch) => void;
   onCreateTag: (name: string) => Promise<Tag>;
+  /** Set only when the neighbouring entry of the same mission follows without a pause. */
+  onMergeWithPrevious?: () => void;
+  onMergeWithNext?: () => void;
 }
 
 const DURATION_INPUT_CLASS =
@@ -29,7 +32,17 @@ const DURATION_INPUT_CLASS =
  * A single time entry. Clicking it expands an inline editor where every field
  * (description, project, tags, billable, times, date, duration) is saved as soon as it changes.
  */
-export default function EntryRow({ entry, projects, tags, onContinue, onDelete, onUpdate, onCreateTag }: Props) {
+export default function EntryRow({
+  entry,
+  projects,
+  tags,
+  onContinue,
+  onDelete,
+  onUpdate,
+  onCreateTag,
+  onMergeWithPrevious,
+  onMergeWithNext,
+}: Props) {
   const [expanded, setExpanded] = useState(false);
   const [description, setDescription] = useState(entry.description);
   const seconds = durationSeconds(entry.start, entry.end);
@@ -52,6 +65,28 @@ export default function EntryRow({ entry, projects, tags, onContinue, onDelete, 
     onUpdate(entry.id, patch);
   }
 
+  const menuItems: ActionMenuItem[] = [];
+  if (onMergeWithPrevious) {
+    menuItems.push({
+      label: "Fusionner avec le créneau précédent",
+      icon: <IconMerge className="w-4 h-4" />,
+      onSelect: onMergeWithPrevious,
+    });
+  }
+  if (onMergeWithNext) {
+    menuItems.push({
+      label: "Fusionner avec le créneau suivant",
+      icon: <IconMerge className="w-4 h-4" />,
+      onSelect: onMergeWithNext,
+    });
+  }
+  menuItems.push({
+    label: "Supprimer",
+    icon: <IconTrash className="w-4 h-4" />,
+    danger: true,
+    onSelect: () => onDelete(entry.id),
+  });
+
   return (
     <div className="border-b border-border last:border-b-0">
       <EntrySummaryRow
@@ -72,16 +107,7 @@ export default function EntryRow({ entry, projects, tags, onContinue, onDelete, 
             >
               <IconPlay />
             </button>
-            <ActionMenu
-              items={[
-                {
-                  label: "Supprimer",
-                  icon: <IconTrash className="w-4 h-4" />,
-                  danger: true,
-                  onSelect: () => onDelete(entry.id),
-                },
-              ]}
-            />
+            <ActionMenu items={menuItems} />
           </>
         }
       />

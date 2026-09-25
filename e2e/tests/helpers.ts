@@ -124,3 +124,21 @@ export async function registerFreshUser(page: Page): Promise<TestUser> {
   await signIn(page, account.token);
   return account.user;
 }
+
+/**
+ * Adds a finished entry from the time tracker's manual mode. Times are typed free-form
+ * ("0845"). Must be called on the time tracker page.
+ */
+export async function addManualEntry(page: Page, description: string, start: string, end: string) {
+  await page.getByPlaceholder("Sur quoi avez-vous travaillé ?").fill(description);
+  const startInput = page.getByLabel("Heure de début");
+  await startInput.click();
+  await startInput.fill(start);
+  await startInput.blur();
+  const endInput = page.getByLabel("Heure de fin");
+  await endInput.click();
+  await endInput.fill(end);
+  await endInput.blur();
+  await page.getByRole("button", { name: "AJOUTER" }).click();
+  await expect(page.getByPlaceholder("Sur quoi avez-vous travaillé ?")).toHaveValue("");
+}

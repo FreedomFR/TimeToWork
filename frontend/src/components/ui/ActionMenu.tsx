@@ -36,7 +36,7 @@ export default function ActionMenu({ items, direction = "down" }: Props) {
       </button>
       {open && (
         <div
-          className={`absolute z-20 w-40 ${
+          className={`absolute z-20 w-max min-w-[10rem] ${
             direction === "up" ? "left-0 bottom-full mb-1" : "right-0 mt-1"
           } bg-surface border border-border rounded shadow-lg overflow-hidden`}
         >

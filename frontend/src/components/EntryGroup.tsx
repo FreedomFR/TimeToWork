@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { EntryPatch, Project, Tag, TimeEntry } from "../api/types";
+import { areContiguous, contiguousRuns } from "../utils/grouping";
 import { durationSeconds } from "../utils/time";
 import EntryRow from "./EntryRow";
 import EntrySummaryRow from "./EntrySummaryRow";
-import { IconPlay } from "./icons";
+import ActionMenu from "./ui/ActionMenu";
+import { IconMerge, IconPlay } from "./icons";
 
 interface Props {
   /** Entries of the same day sharing description, project, billable flag and tags. */
@@ -14,6 +16,8 @@ interface Props {
   onDelete: (id: string) => void;
   onUpdate: (id: string, patch: EntryPatch) => void;
   onCreateTag: (name: string) => Promise<Tag>;
+  /** Merges the given entries (all of this group) into one. */
+  onMerge: (ids: string[]) => Promise<void>;
 }
 
 /**
@@ -21,7 +25,16 @@ interface Props {
  * several are collapsed into one summary line (count + total) that expands to
  * the individual, editable rows.
  */
-export default function EntryGroup({ entries, projects, tags, onContinue, onDelete, onUpdate, onCreateTag }: Props) {
+export default function EntryGroup({
+  entries,
+  projects,
+  tags,
+  onContinue,
+  onDelete,
+  onUpdate,
+  onCreateTag,
+  onMerge,
+}: Props) {
   const [expanded, setExpanded] = useState(false);
 
   const rowProps = { projects, tags, onContinue, onDelete, onUpdate, onCreateTag };
@@ -34,6 +47,13 @@ export default function EntryGroup({ entries, projects, tags, onContinue, onDele
   const totalSeconds = entries.reduce((sum, e) => sum + durationSeconds(e.start, e.end), 0);
   const chronological = [...entries].sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
   const latest = chronological[chronological.length - 1];
+
+  // Pieces of the same mission that follow each other without a pause can be merged into one
+  const mergeableRuns = contiguousRuns(chronological);
+
+  async function mergeAllRuns() {
+    for (const run of mergeableRuns) await onMerge(run.map((e) => e.id));
+  }
 
   return (
     <div className="border-b border-border last:border-b-0">
@@ -53,17 +73,41 @@ export default function EntryGroup({ entries, projects, tags, onContinue, onDele
             <button onClick={() => onContinue(latest)} title="Continuer" className="p-1.5 text-muted hover:text-accent rounded">
               <IconPlay />
             </button>
-            {/* Spacer keeping the column aligned with single rows, which have a menu button */}
-            <span className="w-7" />
+            {mergeableRuns.length > 0 ? (
+              <ActionMenu
+                items={[
+                  {
+                    label: "Fusionner les créneaux consécutifs",
+                    icon: <IconMerge className="w-4 h-4" />,
+                    onSelect: mergeAllRuns,
+                  },
+                ]}
+              />
+            ) : (
+              // Spacer keeping the column aligned with single rows, which have a menu button
+              <span className="w-7" />
+            )}
           </>
         }
       />
 
       {expanded && (
         <div className="bg-bg/30 divide-y divide-border">
-          {chronological.map((entry) => (
-            <EntryRow key={entry.id} entry={entry} {...rowProps} />
-          ))}
+          {chronological.map((entry, i) => {
+            const previous = chronological[i - 1];
+            const next = chronological[i + 1];
+            return (
+              <EntryRow
+                key={entry.id}
+                entry={entry}
+                {...rowProps}
+                onMergeWithPrevious={
+                  previous && areContiguous(previous, entry) ? () => onMerge([previous.id, entry.id]) : undefined
+                }
+                onMergeWithNext={next && areContiguous(entry, next) ? () => onMerge([entry.id, next.id]) : undefined}
+              />
+            );
+          })}
         </div>
       )}
     </div>
