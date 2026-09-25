@@ -11,6 +11,8 @@ import { ZodTypeAny, z } from "zod";
 export function parseBody<S extends ZodTypeAny>(schema: S, body: unknown, res: Response): z.infer<S> | null {
   const parsed = schema.safeParse(body);
   if (!parsed.success) {
+    // Kept for the request journal (path and message of each problem, never the values sent)
+    res.locals.validationIssues = parsed.error.issues.map((i) => `${i.path.join(".") || "(body)"}: ${i.message}`);
     res.status(400).json({ error: parsed.error.flatten() });
     return null;
   }

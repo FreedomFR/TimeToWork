@@ -36,7 +36,10 @@ services:
     depends_on:
       - frontend-test
       - backend
+      - db
     environment:
       BASE_URL: http://frontend-test
       API_URL: http://backend:4000
+      # Lets the admin tests give the admin role to a throwaway account (the API can't, on purpose)
+      DATABASE_URL: postgresql://${POSTGRES_USER:-timetowork}:${POSTGRES_PASSWORD:-timetowork}@db:5432/${POSTGRES_DB:-timetowork}
     command: sh -c "npm install && npm test"

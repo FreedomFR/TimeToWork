@@ -1,8 +1,11 @@
 /** Shapes of the JSON returned by the backend API. */
+export type Role = "USER" | "ADMIN";
+
 export interface User {
   id: string;
   email: string;
   name: string;
+  role: Role;
 }
 
 export interface Client {
@@ -66,3 +69,53 @@ export type EntryPatch = Partial<{
   start: string;
   end: string;
 }>;
+
+/** A user as listed on the admin page. */
+export interface AdminUser extends User {
+  createdAt: string;
+  /** Number of time entries the account has. */
+  entryCount: number;
+}
+
+export type LogType =
+  | "server_error"
+  | "client_error"
+  | "auth_failed"
+  | "rate_limited"
+  | "forbidden"
+  | "validation_error"
+  | "admin_action";
+
+export type LogLevel = "info" | "warn" | "error";
+
+/** One line of the application journal (admin page). */
+export interface LogEntry {
+  id: string;
+  createdAt: string;
+  level: LogLevel;
+  type: LogType;
+  message: string;
+  method: string | null;
+  path: string | null;
+  statusCode: number | null;
+  /** Stack trace or small JSON, as text. */
+  details: string | null;
+  userEmail: string | null;
+  /** null when the entry has no account, or the account was deleted. */
+  user: { id: string; name: string; email: string } | null;
+}
+
+export interface LogPage {
+  items: LogEntry[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+export interface LogSummary {
+  types: LogType[];
+  levels: LogLevel[];
+  byType: Partial<Record<LogType, number>>;
+  byLevel: Partial<Record<LogLevel, number>>;
+}

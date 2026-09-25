@@ -21,6 +21,16 @@ async function main() {
     for (const u of users) console.log(`  - ${u.name} <${u.email}>`);
 
     await prisma.user.deleteMany({ where: { id: { in: users.map((u) => u.id) } } });
+
+    // Journal lines about them (and about the made-up addresses the tests use for failed logins)
+    await prisma.logEntry.deleteMany({
+      where: {
+        OR: [
+          { userEmail: { startsWith: "e2e_", endsWith: "@example.com" } },
+          { userEmail: { startsWith: "nobody-", endsWith: "@example.com" } },
+        ],
+      },
+    });
     console.log("Done.");
   } finally {
     await prisma.$disconnect();

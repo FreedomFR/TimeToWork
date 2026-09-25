@@ -9,6 +9,8 @@ interface AuthContextValue {
   register: (email: string, password: string, name: string) => Promise<void>;
   devLogin: (userId: string) => Promise<void>;
   logout: () => void;
+  /** Re-reads the user from the server (e.g. after their role changed). */
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -52,13 +54,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(res.data.user);
   }
 
+  async function refreshUser() {
+    const res = await api.get("/auth/me");
+    setUser(res.data);
+  }
+
   function logout() {
     localStorage.removeItem("token");
     setUser(null);
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, devLogin, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, register, devLogin, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

@@ -8,11 +8,17 @@ generator client {
   binaryTargets = ["native", "linux-musl", "linux-musl-openssl-3.0.x"]
 }
 
+enum Role {
+  USER
+  ADMIN
+}
+
 model User {
   id                  String      @id @default(uuid())
   email               String      @unique
   password            String
   name                String
+  role                Role        @default(USER)
   resetTokenHash      String?     @unique
   resetTokenExpiresAt DateTime?
   createdAt           DateTime    @default(now())
@@ -20,6 +26,7 @@ model User {
   clients             Client[]
   tags                Tag[]
   timeEntries         TimeEntry[]
+  logs                LogEntry[]
 }
 
 model Client {
@@ -77,4 +84,28 @@ model TimeEntryTag {
   tag         Tag       @relation(fields: [tagId], references: [id], onDelete: Cascade)
 
   @@id([timeEntryId, tagId])
+}
+
+// Application journal, readable by admins only: server and browser errors, failed logins,
+// rate-limit hits, refused accesses, validation failures and admin actions.
+// Never holds passwords, tokens or request bodies.
+model LogEntry {
+  id         String   @id @default(uuid())
+  createdAt  DateTime @default(now())
+  level      String // info | warn | error
+  type       String // see LOG_TYPES in src/lib/logger.ts
+  message    String
+  method     String?
+  path       String?
+  statusCode Int?
+  details    String? // stack trace or small JSON, truncated
+  // The account concerned. SetNull keeps the line when the account is deleted;
+  // userEmail is a snapshot so the line stays readable afterwards.
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userEmail  String?
+
+  @@index([createdAt])
+  @@index([type, createdAt])
+  @@index([userId, createdAt])
 }

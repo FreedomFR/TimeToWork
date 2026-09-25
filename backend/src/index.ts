@@ -2,8 +2,10 @@
 import "dotenv/config";
 import { app } from "./app";
 import { assertSafeJwtSecret } from "./middleware/auth";
+import { startLogRetention } from "./lib/logger";
 
 assertSafeJwtSecret();
+startLogRetention();
 
 const PORT = process.env.PORT || 4000;
 

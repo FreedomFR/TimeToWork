@@ -1,7 +1,7 @@
 import { NavLink } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
-const links = [
+const baseLinks = [
   { to: "/", label: "Suivi du temps", icon: "⏱" },
   { to: "/calendar", label: "Calendrier", icon: "🗓" },
   { to: "/dashboard", label: "Tableau de bord", icon: "🏠" },
@@ -11,9 +11,13 @@ const links = [
   { to: "/account", label: "Mon compte", icon: "⚙️" },
 ];
 
+/** Shown only to administrators (the page itself is also protected by the server). */
+const adminLink = { to: "/admin", label: "Administration", icon: "🛡" };
+
 /** Left navigation with the user's name and the logout button. */
 export default function Sidebar() {
   const { user, logout } = useAuth();
+  const links = user?.role === "ADMIN" ? [...baseLinks, adminLink] : baseLinks;
 
   return (
     <aside className="w-60 shrink-0 bg-sidebar text-gray-200 flex flex-col h-full">

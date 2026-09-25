@@ -10,6 +10,7 @@
  */
 import fs from "fs";
 import path from "path";
+import { Client } from "pg";
 import { Page, expect } from "@playwright/test";
 
 const API_URL = process.env.API_URL || "http://backend:4000";
@@ -56,7 +57,7 @@ export function sharedUser(): TestUser {
 
 // ─── API access (used to reset data and to create throwaway accounts quickly) ─
 
-async function api(method: string, url: string, token?: string, body?: unknown) {
+export async function apiCall(method: string, url: string, token?: string, body?: unknown) {
   const res = await fetch(`${API_URL}/api${url}`, {
     method,
     headers: {
@@ -73,23 +74,25 @@ async function api(method: string, url: string, token?: string, body?: unknown) 
 async function resetAccountData(token: string) {
   // Entries first: they reference projects and tags
   for (const collection of ["time-entries", "projects", "clients", "tags"]) {
-    const items: { id: string }[] = await api("GET", `/${collection}`, token);
-    await Promise.all(items.map((item) => api("DELETE", `/${collection}/${item.id}`, token)));
+    const items: { id: string }[] = await apiCall("GET", `/${collection}`, token);
+    await Promise.all(items.map((item) => apiCall("DELETE", `/${collection}/${item.id}`, token)));
   }
 }
 
 // ─── What tests call ───────────────────────────────────────────────────────
 
-interface Account {
+export interface Account {
   user: TestUser;
   token: string;
+  /** Id of the account in the database. */
+  id: string;
 }
 
 /** Creates an account through the API (fast) and returns it with its session token. */
-async function createAccount(): Promise<Account> {
+export async function createAccount(): Promise<Account> {
   const user = uniqueUser();
-  const { token } = await api("POST", "/auth/register", undefined, user);
-  return { user, token };
+  const { token, user: created } = await apiCall("POST", "/auth/register", undefined, user);
+  return { user, token, id: created.id };
 }
 
 // Each Playwright worker is its own process, so this is one account per worker
@@ -141,4 +144,29 @@ export async function addManualEntry(page: Page, description: string, start: str
   await endInput.blur();
   await page.getByRole("button", { name: "AJOUTER" }).click();
   await expect(page.getByPlaceholder("Sur quoi avez-vous travaillé ?")).toHaveValue("");
+}
+
+// ─── Administrators ────────────────────────────────────────────────────────
+
+/**
+ * Gives the admin role to an account by writing to the database directly, the way the
+ * first admin is created in real life (scripts/set-admin.ts): the API cannot do it, on purpose.
+ */
+export async function makeAdmin(userId: string) {
+  const db = new Client({ connectionString: process.env.DATABASE_URL });
+  await db.connect();
+  try {
+    await db.query(`UPDATE "User" SET role = 'ADMIN' WHERE id = $1`, [userId]);
+  } finally {
+    await db.end();
+  }
+}
+
+/** A brand-new account that is an admin, with the page signed in as it. */
+export async function registerFreshAdmin(page: Page): Promise<Account> {
+  const account = await createAccount();
+  // Promoted before the page loads, so the app sees the role from the start
+  await makeAdmin(account.id);
+  await signIn(page, account.token);
+  return account;
 }

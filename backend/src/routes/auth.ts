@@ -4,6 +4,7 @@
  */
 import { Router } from "express";
 import bcrypt from "bcryptjs";
+import { Role } from "@prisma/client";
 import crypto from "crypto";
 import { z } from "zod";
 import { prisma } from "../lib/prisma";
@@ -42,12 +43,12 @@ function hashToken(token: string) {
 }
 
 /** The user fields that are safe to send to the client (never the password hash). */
-function publicUser(user: { id: string; email: string; name: string }) {
-  return { id: user.id, email: user.email, name: user.name };
+function publicUser(user: { id: string; email: string; name: string; role: Role }) {
+  return { id: user.id, email: user.email, name: user.name, role: user.role };
 }
 
 /** Standard `{ token, user }` payload returned by every login-like endpoint. */
-function session(user: { id: string; email: string; name: string }) {
+function session(user: { id: string; email: string; name: string; role: Role }) {
   return { token: signToken(user.id), user: publicUser(user) };
 }
 
@@ -92,6 +93,14 @@ router.post("/login", loginByIpLimiter, loginByAccountLimiter, async (req, res) 
   const user = await prisma.user.findUnique({ where: { email: data.email } });
   const passwordMatches = await bcrypt.compare(data.password, user ? user.password : DUMMY_HASH);
   if (!user || !passwordMatches) {
+    // For the admin journal: who was targeted, never the password that was tried
+    res.locals.log = {
+      level: "warn",
+      type: "auth_failed",
+      message: user ? "Mot de passe incorrect" : "Email inconnu",
+      userId: user?.id,
+      userEmail: data.email,
+    };
     return res.status(401).json({ error: INVALID_CREDENTIALS });
   }
   res.json(session(user));
@@ -119,6 +128,7 @@ router.post("/change-password", requireAuth, changePasswordLimiter, async (req: 
 
   // Answers 400, not 401: the frontend treats any 401 as "session expired" and logs out
   if (!(await bcrypt.compare(data.currentPassword, user.password))) {
+    res.locals.log = { level: "warn", type: "auth_failed", message: "Changement de mot de passe : mot de passe actuel incorrect" };
     return res.status(400).json({ error: WRONG_CURRENT_PASSWORD });
   }
   if (data.newPassword === data.currentPassword) {
@@ -181,6 +191,7 @@ router.post("/reset-password", resetPasswordLimiter, async (req, res) => {
     where: { resetTokenHash: hashToken(data.token) },
   });
   if (!user || !user.resetTokenExpiresAt || user.resetTokenExpiresAt < new Date()) {
+    res.locals.log = { level: "warn", type: "auth_failed", message: "Réinitialisation : lien invalide ou expiré" };
     return res.status(400).json({ error: "Lien invalide ou expiré" });
   }
 

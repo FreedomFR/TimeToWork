@@ -12,6 +12,8 @@ import Reports from "./pages/Reports";
 import Dashboard from "./pages/Dashboard";
 import Calendar from "./pages/Calendar";
 import Account from "./pages/Account";
+import Admin from "./pages/Admin";
+import AdminRoute from "./components/AdminRoute";
 
 export default function App() {
   return (
@@ -34,6 +36,14 @@ export default function App() {
         <Route path="/projects" element={<Projects />} />
         <Route path="/clients" element={<Clients />} />
         <Route path="/account" element={<Account />} />
+        <Route
+          path="/admin"
+          element={
+            <AdminRoute>
+              <Admin />
+            </AdminRoute>
+          }
+        />
         <Route path="/reports" element={<Reports />} />
       </Route>
     </Routes>

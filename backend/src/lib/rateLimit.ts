@@ -62,3 +62,10 @@ export const changePasswordLimiter = limiter({
   keyPart: (req) => (req as AuthRequest).userId ?? "",
   failuresOnly: true,
 });
+
+/** Browser error reports: a page stuck in an error loop must not flood the journal. */
+export const clientLogLimiter = limiter({
+  windowMs: MINUTE,
+  max: 30,
+  keyPart: (req) => (req as AuthRequest).userId ?? "",
+});

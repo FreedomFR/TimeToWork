@@ -33,6 +33,7 @@ Crée un compte depuis l'écran d'inscription, puis crée tes projets/clients et
 - Tableau de bord : temps total, projet/client principal, histogramme par jour, répartition par projet, activités les plus suivies
 - Rapports (Résumé, Détaillé, Hebdomadaire) avec filtres, plage de dates personnalisée, arrondi au quart d'heure
 - Export des rapports en CSV, Excel, PDF ou JSON (contenu et colonnes au choix)
+- Administration : rôle admin (donné ou retiré depuis l'appli), journal de l'application filtrable par personne et par type de bug
 - Changement de mot de passe une fois connecté (page "Mon compte")
 - Réinitialisation du mot de passe par email ("Mot de passe oublié ?" sur l'écran de connexion)
 
@@ -48,14 +49,37 @@ En passant `DEV_MODE=true` dans `.env`, l'écran de connexion affiche la liste d
 
 ⚠️ À réserver strictement à un environnement local/dev — n'active jamais `DEV_MODE` sur une instance accessible par quelqu'un d'autre que toi, cela permet de se connecter à n'importe quel compte.
 
+## Administration
+
+Un compte peut avoir le rôle **administrateur**. Le lien « Administration » apparaît alors dans le menu (les autres utilisateurs ne le voient pas, et le serveur répond 403 à leurs appels).
+
+- **Utilisateurs** : liste de tous les comptes (recherche par nom ou email) ; un bouton donne ou retire le rôle admin, après confirmation. Le dernier administrateur ne peut pas être rétrogradé, pour ne jamais se retrouver sans personne capable de gérer les rôles. Le rôle est lu dans la base à chaque requête : retirer le rôle prend effet immédiatement, même pour une session déjà ouverte.
+- **Journaux** : le journal de l'application, filtrable par **personne**, **type de bug**, niveau, période et texte libre (message, route, email, détails), triable en cliquant sur une colonne, paginé. Un clic sur une ligne affiche les détails (trace d'erreur…). Des compteurs par type permettent de filtrer d'un clic.
+
+Ce qui est journalisé : erreurs serveur (avec la trace), erreurs JavaScript survenues dans un navigateur, échecs d'authentification, limites de débit atteintes, accès refusés, données refusées par la validation (le champ concerné, jamais la valeur) et changements de rôle (qui a fait quoi). Jamais de mot de passe, de jeton ni de contenu de requête. Les entrées de plus de 30 jours sont supprimées automatiquement (`LOG_RETENTION_DAYS` pour changer la durée).
+
+### Créer le premier administrateur
+
+Personne n'est admin au départ, et l'application ne permet volontairement pas de se promouvoir soi-même : le premier admin se crée en ligne de commande, avec l'email d'un compte existant (les suivants se gèrent depuis la page Administration) :
+
+```bash
+docker run --rm --network timetowork_default \
+  -e DATABASE_URL="postgresql://timetowork:timetowork@db:5432/timetowork" \
+  -v "$(pwd)/backend:/app" -w /app node:20-alpine \
+  sh -c "apk add --no-cache openssl >/dev/null && npx tsx scripts/set-admin.ts vous@example.com"
+```
+
+Ajouter `--revoke` après l'email retire le rôle.
+
 ## Architecture du code
 
 ```
 backend/src
   app.ts, index.ts        app Express (testable) / point d'entrée qui écoute le port
-  routes/                 un fichier par ressource : auth, projects, clients, tags, timeEntries, reports
+  routes/                 un fichier par ressource : auth, projects, clients, tags, timeEntries, reports, admin, logs
   middleware/auth.ts      JWT : requireAuth + signToken
-  lib/                    prisma, mailer, http (validation zod, 404, filtre de dates)
+  middleware/admin.ts     requireAdmin (rôle lu en base à chaque requête), requestLog.ts (journal des requêtes)
+  lib/                    prisma, mailer, http (validation zod, 404, filtre de dates), logger (journal), rateLimit, ownership
 
 frontend/src
   pages/                  une page par écran (TimeTracker, Dashboard, Reports, Projects, Clients, Login…)
@@ -113,13 +137,13 @@ Nécessite une instance PostgreSQL locale et un fichier `.env` dans `backend/` a
 
 Le projet a deux suites de tests, à lancer après avoir démarré la stack (`docker compose up -d`) :
 
-**Backend (107 tests)** — tests d'intégration (Vitest + Supertest) qui couvrent auth, projets, clients, tags, entrées de temps et rapports, sur une base Postgres de test dédiée (`timetowork_test`, créée et migrée automatiquement) :
+**Backend (142 tests)** — tests d'intégration (Vitest + Supertest) qui couvrent auth, projets, clients, tags, entrées de temps et rapports, sur une base Postgres de test dédiée (`timetowork_test`, créée et migrée automatiquement) :
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.test.yml run --rm backend-test
 ```
 
-**End-to-end (78 tests)** — Playwright, qui pilote un vrai navigateur contre l'application complète (inscription, connexion, minuteur, saisie manuelle, tags, projets/clients, édition en ligne, calendrier, tableau de bord, rapports, export, mot de passe oublié, mode DEV) :
+**End-to-end (89 tests)** — Playwright, qui pilote un vrai navigateur contre l'application complète (inscription, connexion, minuteur, saisie manuelle, tags, projets/clients, édition en ligne, calendrier, tableau de bord, rapports, export, administration, mot de passe oublié, mode DEV) :
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.test.yml build frontend-test
