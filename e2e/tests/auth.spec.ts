@@ -1,45 +1,50 @@
-import { test, expect } from "@playwright/test";
-import { registerAndLogin, uniqueUser } from "./helpers";
+import { test, expect, Page } from "@playwright/test";
+import { registerViaUi, sharedUser, uniqueUser } from "./helpers";
+
+// These tests exercise the pages a visitor sees BEFORE signing in, so they start
+// logged out (the other specs start signed in as the shared test account).
+test.use({ storageState: { cookies: [], origins: [] } });
+
+/** Fills the login page with the given credentials and submits it. */
+async function submitLogin(page: Page, email: string, password: string) {
+  await page.goto("/login");
+  await page.locator("#login-email").fill(email);
+  await page.locator("#login-password").fill(password);
+  await page.getByRole("button", { name: "Se connecter" }).click();
+}
 
 test("registers a new account and lands on the time tracker", async ({ page }) => {
-  const user = await registerAndLogin(page);
+  const user = uniqueUser();
+  await registerViaUi(page, user);
   await expect(page.getByText(user.name)).toBeVisible();
   await expect(page.getByText(user.email)).toBeVisible();
 });
 
-test("logs out and back in with the same credentials", async ({ page }) => {
-  const user = await registerAndLogin(page);
+// The login tests reuse the account the `setup` project created through the register page
+test("logs in with the account created at setup, logs out and back in", async ({ page }) => {
+  const user = sharedUser();
+  await submitLogin(page, user.email, user.password);
+  await expect(page.getByRole("heading", { name: "Suivi du temps" })).toBeVisible();
+  await expect(page.getByText(user.email)).toBeVisible();
 
   await page.getByRole("button", { name: "Déconnexion" }).click();
   await expect(page).toHaveURL(/\/login/);
 
-  await page.locator("#login-email").fill(user.email);
-  await page.locator("#login-password").fill(user.password);
-  await page.getByRole("button", { name: "Se connecter" }).click();
-
+  await submitLogin(page, user.email, user.password);
   await expect(page.getByRole("heading", { name: "Suivi du temps" })).toBeVisible();
 });
 
 test("rejects a wrong password with an error message", async ({ page }) => {
-  const user = await registerAndLogin(page);
-  await page.getByRole("button", { name: "Déconnexion" }).click();
-
-  await page.locator("#login-email").fill(user.email);
-  await page.locator("#login-password").fill("totally-wrong-password");
-  await page.getByRole("button", { name: "Se connecter" }).click();
+  await submitLogin(page, sharedUser().email, "totally-wrong-password");
 
   await expect(page.getByText("Email ou mot de passe incorrect")).toBeVisible();
   await expect(page).toHaveURL(/\/login/);
 });
 
 test("rejects registering with an email already in use", async ({ page }) => {
-  const user = uniqueUser();
-  await registerAndLogin(page, user);
-  await page.getByRole("button", { name: "Déconnexion" }).click();
-
   await page.goto("/register");
   await page.locator("#register-name").fill("Someone else");
-  await page.locator("#register-email").fill(user.email);
+  await page.locator("#register-email").fill(sharedUser().email);
   await page.locator("#register-password").fill("another-password");
   await page.getByRole("button", { name: "Créer le compte" }).click();
 

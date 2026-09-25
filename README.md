@@ -105,7 +105,7 @@ docker compose -f docker-compose.yml -f docker-compose.test.yml up -d frontend-t
 docker compose -f docker-compose.yml -f docker-compose.test.yml run --rm e2e
 ```
 
-Les tests E2E créent des comptes utilisateur jetables (email horodaté unique) dans la base de données réelle utilisée par `docker compose up` — ils n'écrivent jamais dans un compte existant, mais laissent quelques comptes/projets de test après coup. Le test du mode DEV s'auto-ignore proprement si `DEV_MODE` n'est pas activé.
+Les tests E2E créent quelques comptes jetables (email horodaté unique) dans la base de données réelle utilisée par `docker compose up` : un test `setup` crée d'abord un compte partagé via la page d'inscription (s'il échoue, les autres tests ne sont pas lancés), et chaque test repart de ce compte vidé de ses données. Ils n'écrivent jamais dans un compte existant. Le test du mode DEV s'auto-ignore proprement si `DEV_MODE` n'est pas activé.
 
 Pour nettoyer ces comptes de test (`E2E User ... <e2e_...@example.com>`) de la vraie base après une session de tests E2E :
 

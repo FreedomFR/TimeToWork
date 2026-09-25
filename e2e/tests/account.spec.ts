@@ -1,5 +1,5 @@
 import { test, expect, Page } from "@playwright/test";
-import { registerAndLogin } from "./helpers";
+import { registerAndLogin, registerFreshUser } from "./helpers";
 
 async function openAccount(page: Page) {
   await page.getByRole("link", { name: "Mon compte" }).click();
@@ -14,7 +14,8 @@ async function fillPasswordForm(page: Page, current: string, next: string, confi
 }
 
 test("account page shows the profile and changes the password", async ({ page }) => {
-  const user = await registerAndLogin(page);
+  // Changes the password, so it must not use the shared account the other tests rely on
+  const user = await registerFreshUser(page);
   await openAccount(page);
 
   const main = page.getByRole("main");

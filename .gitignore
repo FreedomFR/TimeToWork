@@ -11,3 +11,6 @@ backend/.env.test.local
 
 # local tooling
 .claude/
+
+# E2E: saved session and credentials of the shared test account
+e2e/.auth/
