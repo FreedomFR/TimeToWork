@@ -80,7 +80,7 @@ export default function Dashboard() {
                     <ul className="flex-1 min-w-0 w-full space-y-3" aria-label="Répartition par projet">
                       {stats.shares.map((s) => (
                         <li key={s.key} className="flex items-center gap-3 text-sm">
-                          <span className="w-36 shrink-0 text-right truncate text-gray-200">
+                          <span className="w-36 shrink-0 text-right break-words leading-snug text-gray-200">
                             {s.name}
                             {s.clientName && <span className="text-muted"> - {s.clientName}</span>}
                           </span>
@@ -157,7 +157,7 @@ function Kpi({ label, value, testId, mono }: { label: string; value: string; tes
       <p className="text-xs text-muted">{label}</p>
       <p
         data-testid={testId}
-        className={`mt-1 text-2xl text-gray-100 truncate ${mono ? "font-mono" : ""}`}
+        className={`mt-1 text-2xl leading-tight text-gray-100 break-words ${mono ? "font-mono" : ""}`}
         title={value}
       >
         {value}

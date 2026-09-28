@@ -71,7 +71,7 @@ export async function apiCall(method: string, url: string, token?: string, body?
 }
 
 /** Deletes every time entry, project, client and tag of the account. */
-async function resetAccountData(token: string) {
+export async function resetAccountData(token: string) {
   // Entries first: they reference projects and tags
   for (const collection of ["time-entries", "projects", "clients", "tags"]) {
     const items: { id: string }[] = await apiCall("GET", `/${collection}`, token);
@@ -152,14 +152,19 @@ export async function addManualEntry(page: Page, description: string, start: str
  * Gives the admin role to an account by writing to the database directly, the way the
  * first admin is created in real life (scripts/set-admin.ts): the API cannot do it, on purpose.
  */
-export async function makeAdmin(userId: string) {
+/** Runs one SQL statement on the application database (test set-up only). */
+export async function runSql(sql: string, params: unknown[] = []) {
   const db = new Client({ connectionString: process.env.DATABASE_URL });
   await db.connect();
   try {
-    await db.query(`UPDATE "User" SET role = 'ADMIN' WHERE id = $1`, [userId]);
+    await db.query(sql, params);
   } finally {
     await db.end();
   }
+}
+
+export async function makeAdmin(userId: string) {
+  await runSql(`UPDATE "User" SET role = 'ADMIN' WHERE id = $1`, [userId]);
 }
 
 /** A brand-new account that is an admin, with the page signed in as it. */

@@ -2,6 +2,8 @@
 
 Application de suivi du temps, dans l'esprit de Clockify : minuteur, entrées de temps manuelles, projets, clients et rapports — le tout conteneurisé avec Docker.
 
+📖 **[Guide d'utilisation complet, avec captures d'écran](docs/GUIDE.md)** : compte, suivi du temps, calendrier, tableau de bord, rapports, administration.
+
 ## Stack
 
 - **Backend** : Node.js, Express, TypeScript, Prisma, PostgreSQL, JWT

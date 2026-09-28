@@ -33,6 +33,8 @@ services:
     working_dir: /app
     volumes:
       - ./e2e:/app
+      # Where the documentation screenshots are written (npm run docs:screenshots)
+      - ./docs/screenshots:/screenshots
     depends_on:
       - frontend-test
       - backend

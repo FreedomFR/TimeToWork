@@ -29,6 +29,24 @@ function formatWhen(iso: string): string {
   return new Date(iso).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "medium" });
 }
 
+/**
+ * Details are stored as JSON text for structured events (`{"kind":"react","stack":"..."}`) or as a bare
+ * stack trace. Structured ones are unfolded to `key: value` blocks so a stack keeps its line breaks.
+ */
+function formatDetails(raw: string): string {
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return Object.entries(parsed)
+        .map(([key, value]) => `${key}: ${typeof value === "string" ? value : JSON.stringify(value, null, 2)}`)
+        .join("\n\n");
+    }
+  } catch {
+    // not JSON: shown as is
+  }
+  return raw;
+}
+
 /** Query parameters shared by the list and the summary (dates become whole local days). */
 function filterParams(f: Filters) {
   return {
@@ -279,7 +297,7 @@ export default function LogsPanel() {
                       <td colSpan={5} className="px-4 py-3">
                         {entry.details ? (
                           <pre data-testid="log-details" className="text-xs text-gray-300 whitespace-pre-wrap break-words font-mono max-h-64 overflow-auto">
-                            {entry.details}
+                            {formatDetails(entry.details)}
                           </pre>
                         ) : (
                           <p className="text-xs text-muted">Aucun détail.</p>
