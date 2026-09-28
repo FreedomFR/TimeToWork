@@ -43,6 +43,35 @@ services:
     ports:
       - "127.0.0.1:4000:4000"
 
+  # Regular backups of the database into ./backups (see backup/backup.sh and the guide).
+  # Same image as the database, so pg_dump always matches its version.
+  backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGHOST: db
+      PGUSER: ${POSTGRES_USER:-timetowork}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-timetowork}
+      PGDATABASE: ${POSTGRES_DB:-timetowork}
+      BACKUP_INTERVAL_MINUTES: ${BACKUP_INTERVAL_MINUTES:-1440}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+      BACKUP_KEEP_MIN: ${BACKUP_KEEP_MIN:-3}
+    volumes:
+      - ./backups:/backups
+      - ./backup:/scripts:ro
+    entrypoint: ["/bin/sh", "/scripts/backup.sh"]
+    command: ["run"]
+    # "unhealthy" in `docker compose ps` = no recent backup (the database is down, the disk is full...)
+    healthcheck:
+      test: ["CMD", "/bin/sh", "/scripts/backup.sh", "health"]
+      interval: 5m
+      timeout: 10s
+      retries: 1
+      start_period: 3m
+
   frontend:
     build:
       context: ./frontend

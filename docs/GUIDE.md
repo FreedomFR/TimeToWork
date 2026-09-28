@@ -357,14 +357,51 @@ Un clic sur une ligne affiche ses **détails**, par exemple la trace d'une erreu
   Collez le résultat dans `.env` puis relancez le backend (`docker compose up -d backend`). Tout le monde est déconnecté une fois. Avec `DEV_MODE=false`, le serveur refuse même de démarrer sur un secret faible.
 - **`DEV_MODE=true` uniquement en local.** Cette option permet de se connecter à n'importe quel compte sans mot de passe.
 - **Ne publiez pas les ports** de la base et de l'API sur Internet : le fichier `docker-compose.yml` les limite volontairement à `127.0.0.1`.
-- **Sauvegardez la base** régulièrement :
-
-  ```bash
-  docker compose exec db pg_dump -U timetowork timetowork > sauvegarde.sql
-  ```
+- **Vos données sont sauvegardées automatiquement** (voir [Sauvegardes de la base](#sauvegardes-de-la-base) ci-dessous) : pensez surtout à en copier une de temps en temps **hors de cette machine**.
 - **Mots de passe** : 8 à 72 caractères. Les sessions durent 30 jours ; se déconnecter n'invalide pas un jeton volé, changez de `JWT_SECRET` en cas de doute.
 
 Détail des protections en place (isolation des données, limitation des tentatives, en-têtes, etc.) : section « Sécurité » du [README](../README.md).
+
+### Sauvegardes de la base
+
+Un service `backup` démarre avec le reste (`docker compose up`) et copie la base dans le dossier **`backups/`** du projet, à intervalle régulier. Il n'y a rien à lancer.
+
+- **Fréquence** : tous les jours par défaut. Réglable dans `.env` (en minutes) : `BACKUP_INTERVAL_MINUTES=360` pour toutes les 6 heures, `60` pour toutes les heures.
+- **Une sauvegarde au démarrage**, puis à chaque intervalle. Redémarrer la pile n'en ajoute pas à chaque fois : le service attend ce qui reste de l'intervalle.
+- **Rotation** : les sauvegardes de plus de 14 jours sont supprimées (`BACKUP_KEEP_DAYS`), mais les 3 plus récentes sont toujours gardées quel que soit leur âge (`BACKUP_KEEP_MIN`), pour ne jamais se retrouver sans sauvegarde si le service s'arrête un moment.
+- **Fichiers** : `timetowork_AAAAMMJJ_HHMMSS.dump` (heure UTC), compressés. Chaque fichier est vérifié avant d'être gardé ; un fichier vide ou illisible est écarté.
+- **Suivi** : `docker compose ps` montre l'état du service ; il passe à *unhealthy* s'il n'y a plus de sauvegarde récente (base arrêtée, disque plein…). Le détail est dans les logs :
+
+  ```bash
+  docker compose logs backup
+  ```
+
+Commandes utiles :
+
+```bash
+# Faire une sauvegarde tout de suite
+docker compose run --rm backup once
+
+# Lister les sauvegardes
+docker compose run --rm backup list
+```
+
+**Restaurer une sauvegarde.** Arrêtez d'abord le backend, restaurez, puis relancez-le :
+
+```bash
+docker compose stop backend
+docker compose run --rm backup restore timetowork_20260928_131733.dump
+docker compose start backend
+```
+
+La base actuelle est **d'abord copiée** dans `backups/pre-restore_….dump` (jamais supprimée automatiquement) : une restauration peut donc elle-même être annulée. Pour examiner une sauvegarde sans toucher à la vraie base, restaurez-la dans une base de test : `docker compose run --rm backup restore <fichier> nom_de_la_base_de_test`.
+
+**À savoir**
+
+- Les sauvegardes contiennent **toutes les données** : mots de passe hachés, adresses email, journal. Le dossier `backups/` est exclu de git ; gardez-le privé et ne le partagez pas.
+- Elles ne sont **pas chiffrées** et se trouvent sur le même disque que la base : elles protègent d'une erreur de manipulation, d'un volume Docker supprimé ou d'une mise à jour ratée, pas d'une panne du disque. Copiez régulièrement un fichier `.dump` ailleurs (autre disque, stockage chiffré).
+- Le service a ses propres tests (`docker compose run --rm --entrypoint /bin/sh backup /scripts/test.sh`) : sauvegarde, restauration, rotation, échecs et contrôle de santé, sur des bases jetables.
+
 
 ---
 
@@ -377,6 +414,7 @@ Détail des protections en place (isolation des données, limitation des tentati
 | **« Trop de tentatives »** | Trop de mots de passe faux ou de demandes de réinitialisation : attendez 15 minutes (1 heure pour les emails de réinitialisation). |
 | **Je ne reçois pas l'email de réinitialisation** | Vérifiez la configuration `SMTP_*` du `.env`. Sans SMTP, le lien est dans `docker compose logs backend`. |
 | **Impossible d'ouvrir http://localhost:8080** | Vérifiez que les conteneurs tournent (`docker compose ps`). Les ports ne sont accessibles que depuis votre machine. |
+| **Le service `backup` est « unhealthy »** | Aucune sauvegarde récente : regardez `docker compose logs backup` (base arrêtée ? disque plein ? dossier `backups/` non accessible ?). Une sauvegarde manuelle : `docker compose run --rm backup once`. |
 | **Une page affiche « Une erreur est survenue »** | L'incident est signalé dans le journal (type « Erreur navigateur ») ; rechargez la page. |
 
 ### Lancer les tests

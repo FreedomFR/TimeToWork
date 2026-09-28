@@ -8,7 +8,7 @@ Application de suivi du temps, dans l'esprit de Clockify : minuteur, entrées de
 
 - **Backend** : Node.js, Express, TypeScript, Prisma, PostgreSQL, JWT
 - **Frontend** : React, TypeScript, Vite, Tailwind CSS, React Router
-- **Infra** : Docker Compose (db + backend + frontend/nginx)
+- **Infra** : Docker Compose (db + backend + frontend/nginx + backup)
 
 ## Démarrage
 
@@ -36,6 +36,7 @@ Crée un compte depuis l'écran d'inscription, puis crée tes projets/clients et
 - Rapports (Résumé, Détaillé, Hebdomadaire) avec filtres, plage de dates personnalisée, arrondi au quart d'heure
 - Export des rapports en CSV, Excel, PDF ou JSON (contenu et colonnes au choix)
 - Administration : rôle admin (donné ou retiré depuis l'appli), journal de l'application filtrable par personne et par type de bug
+- Sauvegardes automatiques de la base (dossier `backups/`, fréquence et rotation réglables, restauration en une commande)
 - Changement de mot de passe et d'adresse email une fois connecté (page "Mon compte") : le mot de passe actuel est exigé, l'ancienne adresse est prévenue par email
 - Réinitialisation du mot de passe par email ("Mot de passe oublié ?" sur l'écran de connexion)
 
@@ -93,6 +94,8 @@ frontend/src
   utils/                  logique pure, sans React : time (dates/durées), reportData (filtres/regroupements),
                           dashboard (calculs), grouping (liste par semaine/jour), export, xlsx, constants
   api/                    client axios et types des réponses de l'API
+
+backup/                   sauvegardes de la base : backup.sh (sauvegarde, rotation, restauration) et test.sh
 ```
 
 Principe : les calculs (durées, regroupements, totaux) vivent dans `utils/` en fonctions pures ; les pages ne gèrent que l'état et l'enchaînement des appels API ; les composants ne font que de l'affichage.
@@ -162,6 +165,12 @@ docker run --rm --network timetowork_default \
   -e DATABASE_URL="postgresql://timetowork:timetowork@db:5432/timetowork" \
   -v "$(pwd)/backend:/app" -w /app node:20-alpine \
   sh -c "apk add --no-cache openssl >/dev/null && npx tsx scripts/cleanup-e2e-users.ts"
+```
+
+**Sauvegardes (37 vérifications)** — le script de sauvegarde est testé sur des bases jetables (sauvegarde, restauration, rotation, échecs, contrôle de santé, boucle) :
+
+```bash
+docker compose run --rm --entrypoint /bin/sh backup /scripts/test.sh
 ```
 
 **Après toute modification du code**, relance ces deux suites pour vérifier qu'aucune fonctionnalité existante n'a régressé avant d'ajouter la suivante.
