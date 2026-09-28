@@ -2,7 +2,7 @@
  * Authentication: register / login, current user, password change and reset by email,
  * and the DEV_MODE passwordless login used during development.
  */
-import { Router } from "express";
+import { Request, Router } from "express";
 import bcrypt from "bcryptjs";
 import { Role } from "@prisma/client";
 import crypto from "crypto";
@@ -11,6 +11,7 @@ import { prisma } from "../lib/prisma";
 import { notFound, parseBody } from "../lib/http";
 import { requireAuth, signToken, AuthRequest } from "../middleware/auth";
 import { sendPasswordResetEmail } from "../lib/mailer";
+import { LogLevel, LogType, clientInfo, logEvent } from "../lib/logger";
 import {
   changePasswordLimiter,
   forgotPasswordByEmailLimiter,
@@ -52,6 +53,18 @@ function session(user: { id: string; email: string; name: string; role: Role }) 
   return { token: signToken(user.id), user: publicUser(user) };
 }
 
+/**
+ * Journals an account event (sign-up, sign-in, password change…) with where it came from: the
+ * address and the browser. The password is never part of it.
+ */
+function record(
+  req: Request,
+  type: LogType,
+  entry: { message: string; level?: LogLevel; userId?: string; userEmail?: string; details?: Record<string, unknown>; statusCode?: number }
+) {
+  logEvent({ level: "info", type, method: req.method, path: req.originalUrl.split("?")[0], ...clientInfo(req), ...entry });
+}
+
 const router = Router();
 
 // ─── Register / login ──────────────────────────────────────────────────────
@@ -68,6 +81,7 @@ router.post("/register", registerLimiter, async (req, res) => {
 
   const existing = await prisma.user.findUnique({ where: { email: data.email } });
   if (existing) {
+    res.locals.log = { level: "warn", type: "auth_failed", message: "Inscription refusée : email déjà utilisé", userEmail: data.email };
     return res.status(409).json({ error: "Cet email est déjà utilisé" });
   }
 
@@ -77,6 +91,13 @@ router.post("/register", registerLimiter, async (req, res) => {
       password: await bcrypt.hash(data.password, BCRYPT_ROUNDS),
       name: data.name,
     },
+  });
+  record(req, "account_created", {
+    message: "Compte créé",
+    userId: user.id,
+    userEmail: user.email,
+    statusCode: 201,
+    details: { name: user.name },
   });
   res.status(201).json(session(user));
 });
@@ -103,7 +124,14 @@ router.post("/login", loginByIpLimiter, loginByAccountLimiter, async (req, res) 
     };
     return res.status(401).json({ error: INVALID_CREDENTIALS });
   }
+  record(req, "login", { message: "Connexion", userId: user.id, userEmail: user.email, statusCode: 200 });
   res.json(session(user));
+});
+
+// Sign out. The session token is stateless, so this only records the event: the client discards its token.
+router.post("/logout", requireAuth, (req: AuthRequest, res) => {
+  record(req, "logout", { message: "Déconnexion", userId: req.userId, statusCode: 204 });
+  res.status(204).send();
 });
 
 router.get("/me", requireAuth, async (req: AuthRequest, res) => {
@@ -144,6 +172,7 @@ router.post("/change-password", requireAuth, changePasswordLimiter, async (req: 
       resetTokenExpiresAt: null,
     },
   });
+  record(req, "password_changed", { message: "Mot de passe modifié", userId: user.id, userEmail: user.email, statusCode: 200 });
   res.json({ message: "Mot de passe mis à jour" });
 });
 
@@ -172,6 +201,15 @@ router.post("/forgot-password", forgotPasswordByIpLimiter, forgotPasswordByEmail
     });
     await sendPasswordResetEmail(user.email, `${APP_URL}/reset-password?token=${token}`);
   }
+
+  // The journal (admins only) does say whether the account exists; the answer to the visitor never does
+  record(req, "password_reset_requested", {
+    message: user ? "Demande de réinitialisation du mot de passe" : "Demande de réinitialisation : compte inexistant",
+    level: user ? "info" : "warn",
+    userId: user?.id,
+    userEmail: data.email,
+    statusCode: 200,
+  });
 
   res.json({
     message: "Si un compte existe avec cet email, un lien de réinitialisation a été envoyé.",
@@ -204,6 +242,7 @@ router.post("/reset-password", resetPasswordLimiter, async (req, res) => {
       resetTokenExpiresAt: null,
     },
   });
+  record(req, "password_reset_done", { message: "Mot de passe réinitialisé", userId: user.id, userEmail: user.email, statusCode: 200 });
   res.json({ message: "Mot de passe mis à jour" });
 });
 
@@ -233,6 +272,14 @@ router.post("/dev/login", async (req, res) => {
 
   const user = await prisma.user.findUnique({ where: { id: data.userId } });
   if (!user) return notFound(res, "User not found");
+  record(req, "login", {
+    message: "Connexion rapide (mode DEV, sans mot de passe)",
+    level: "warn",
+    userId: user.id,
+    userEmail: user.email,
+    statusCode: 200,
+    details: { method: "dev" },
+  });
   res.json(session(user));
 });
 

@@ -1,5 +1,5 @@
 import { test, expect, Page } from "@playwright/test";
-import { apiCall, makeAdmin, resetAccountData, runSql } from "../tests/helpers";
+import { apiCall, makeAdmin, runSql } from "../tests/helpers";
 
 /**
  * Generates the screenshots of docs/GUIDE.md (run with `npm run docs:screenshots`, see docs.config.ts).
@@ -28,20 +28,34 @@ async function shot(page: Page, name: string) {
   await page.screenshot({ path: `${OUT}/${name}.png` });
 }
 
-/** Creates the demo account, or signs in and empties it when it already exists from a previous run. */
+/** A browser string like a real visitor's, so the journal shows something natural. */
+const BROWSER = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36";
+
+/** Calls the API the way a browser would (with a browser string), and returns the status and JSON body. */
+async function demoRequest(method: string, path: string, body?: unknown, token?: string) {
+  const res = await fetch(`${API}/api${path}`, {
+    method,
+    headers: {
+      "Content-Type": "application/json",
+      "User-Agent": BROWSER,
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  return { status: res.status, body: res.status === 204 ? null : await res.json().catch(() => null) };
+}
+
+/**
+ * Creates the demo account from scratch: a previous run's copy is deleted first, so the sign-up is
+ * journaled again and the account starts as a plain, empty user.
+ */
 async function demoAccount(name: string, slug: string): Promise<Demo> {
   const email = `e2e_docs_${slug}@example.com`;
-  let session: { token: string; user: { id: string } };
-  try {
-    session = await apiCall("POST", "/auth/register", undefined, { email, password: PASSWORD, name });
-  } catch {
-    session = await apiCall("POST", "/auth/login", undefined, { email, password: PASSWORD });
-  }
-  await resetAccountData(session.token);
-  // Back to a plain user (a previous run may have promoted this account) and no old journal lines
-  await runSql(`UPDATE "User" SET role = 'USER' WHERE id = $1`, [session.user.id]);
-  await runSql(`DELETE FROM "LogEntry" WHERE "userId" = $1 OR "userEmail" = $2`, [session.user.id, email]);
-  return { id: session.user.id, token: session.token, email, name };
+  await runSql(`DELETE FROM "LogEntry" WHERE "userEmail" = $1`, [email]);
+  await runSql(`DELETE FROM "User" WHERE email = $1`, [email]);
+  const registered = await demoRequest("POST", "/auth/register", { email, password: PASSWORD, name });
+  if (registered.status !== 201) throw new Error(`Could not create the demo account ${email}: ${registered.status}`);
+  return { id: registered.body.user.id, token: registered.body.token, email, name };
 }
 
 async function signIn(page: Page, token: string, path = "/") {
@@ -269,27 +283,27 @@ test("documentation screenshots", async ({ page }) => {
   const alex = await demoAccount("Alex Admin", "alex");
   await makeAdmin(alex.id);
   const sam = await demoAccount("Sam Dupont", "sam");
-  // Some events for the journal: wrong passwords, a refused access, a refused form, a browser error
+  // Some events for the journal: sign-in and out, wrong passwords, a password request, a refused
+  // access, a refused form, a browser error (the sign-up itself was journaled when Sam was created)
+  await demoRequest("POST", "/auth/login", { email: sam.email, password: PASSWORD });
   for (let i = 0; i < 2; i++) {
-    await fetch(`${API}/api/auth/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: sam.email, password: "not-the-password" }),
-    });
+    await demoRequest("POST", "/auth/login", { email: sam.email, password: "not-the-password" });
   }
-  const asSam = (path: string, init: RequestInit) =>
-    fetch(`${API}/api${path}`, { ...init, headers: { "Content-Type": "application/json", Authorization: `Bearer ${sam.token}` } });
-  await asSam("/admin/users", { method: "GET" }); // forbidden: Sam is not an admin
-  await asSam("/time-entries", { method: "POST", body: JSON.stringify({ start: "pas-une-date" }) }); // refused by validation
-  await asSam("/logs/client", {
-    method: "POST",
-    body: JSON.stringify({
+  await demoRequest("POST", "/auth/forgot-password", { email: sam.email });
+  await demoRequest("GET", "/admin/users", undefined, sam.token); // forbidden: Sam is not an admin
+  await demoRequest("POST", "/time-entries", { start: "pas-une-date" }, sam.token); // refused by validation
+  await demoRequest(
+    "POST",
+    "/logs/client",
+    {
       message: "Cannot read properties of undefined (reading 'map')",
       stack: "TypeError: Cannot read properties of undefined (reading 'map')\n    at Reports (assets/index.js:412:18)\n    at renderWithHooks (assets/index.js:1204:22)",
       url: "http://localhost:8080/reports",
       kind: "react",
-    }),
-  });
+    },
+    sam.token
+  );
+  await demoRequest("POST", "/auth/logout", undefined, sam.token);
 
   await signIn(page, alex.token, "/admin");
   await expect(page.getByRole("heading", { name: "Administration" })).toBeVisible();
@@ -313,4 +327,14 @@ test("documentation screenshots", async ({ page }) => {
   await page.getByTestId("log-row").click();
   await expect(page.getByTestId("log-details")).toBeVisible();
   await shot(page, "admin-logs-details");
+
+  // What is recorded when someone signs up: the name and email used, the address and the browser
+  await page.getByLabel("Rechercher dans le journal").fill(sam.email);
+  await page.getByLabel("Filtrer par type").selectOption({ label: "Compte créé" });
+  // Wait for the new list (not the previous one) before looking at it
+  await expect(page.getByTestId("log-row").first()).toContainText("Compte créé");
+  await expect(page.getByTestId("log-row")).toHaveCount(1);
+  await page.getByTestId("log-row").click();
+  await expect(page.getByTestId("log-client-info")).toBeVisible();
+  await shot(page, "admin-logs-account");
 });

@@ -1,5 +1,5 @@
 import { NextFunction, Request, Response } from "express";
-import { LogInput, logEvent } from "../lib/logger";
+import { LogInput, clientInfo, logEvent } from "../lib/logger";
 import { AuthRequest } from "./auth";
 
 /**
@@ -40,6 +40,7 @@ export function requestLog(req: Request, res: Response, next: NextFunction) {
       path: req.originalUrl.split("?")[0],
       statusCode: status,
       userId: (req as AuthRequest).userId,
+      ...clientInfo(req),
       ...entry,
     } as LogInput);
   });

@@ -7,7 +7,7 @@ import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "../lib/prisma";
 import { notFound, parseBody } from "../lib/http";
-import { LOG_LEVELS, LOG_TYPES, logEvent } from "../lib/logger";
+import { LOG_LEVELS, LOG_TYPES, clientInfo, logEvent } from "../lib/logger";
 import { dateField } from "../lib/schemas";
 import { requireAuth, AuthRequest } from "../middleware/auth";
 import { requireAdmin } from "../middleware/admin";
@@ -103,6 +103,7 @@ router.put("/users/:id/role", async (req: AuthRequest, res) => {
     path: req.originalUrl.split("?")[0],
     statusCode: 200,
     userId: req.userId,
+    ...clientInfo(req),
     details: { targetId: target.id, targetEmail: target.email, from: target.role, to: data.role },
   });
 
@@ -120,7 +121,7 @@ const logsFilters = z.object({
   level: z.enum(LOG_LEVELS).optional(),
   from: dateField.optional(),
   to: dateField.optional(),
-  /** Free text, searched in the message, the route, the account's email and the details. */
+  /** Free text, searched in the message, the route, the account's email, the details, the address and the browser. */
   q: z.string().trim().max(100).optional(),
 });
 
@@ -143,6 +144,8 @@ function logsWhere(f: z.infer<typeof logsFilters>): Prisma.LogEntryWhereInput {
           { path: { contains: f.q, mode: "insensitive" } },
           { userEmail: { contains: f.q, mode: "insensitive" } },
           { details: { contains: f.q, mode: "insensitive" } },
+          { ip: { contains: f.q } },
+          { userAgent: { contains: f.q, mode: "insensitive" } },
         ]
       : undefined,
   };

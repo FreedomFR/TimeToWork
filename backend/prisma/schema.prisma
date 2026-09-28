@@ -104,6 +104,10 @@ model LogEntry {
   userId     String?
   user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   userEmail  String?
+  // Where the request came from: address and browser, for auth events and everything that
+  // is journaled from a request. Personal data: covered by the same retention as the line.
+  ip         String?
+  userAgent  String?
 
   @@index([createdAt])
   @@index([type, createdAt])

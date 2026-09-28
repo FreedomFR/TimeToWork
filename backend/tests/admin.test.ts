@@ -407,7 +407,7 @@ describe("admin: reading the journal", () => {
     expect(await search(marker)).toBe(5);
     expect(await search(marker.toUpperCase())).toBe(5); // case-insensitive
     expect(await search(`/api/rate_limited`)).toBeGreaterThanOrEqual(1);
-    expect(await search(alice.user.email)).toBe(3);
+    expect(await search(alice.user.email)).toBe(4); // her 3 seeded lines and her own sign-up
     expect(await search(`${marker} details of invalid E`)).toBe(1);
   });
 

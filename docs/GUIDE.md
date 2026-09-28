@@ -296,8 +296,25 @@ Ce qui est enregistré, par **type** :
 | Accès refusé | Un utilisateur a tenté une action réservée aux administrateurs |
 | Données invalides | L'API a refusé des données (on garde le champ concerné, jamais la valeur) |
 | Action d'administration | Un changement de rôle : qui l'a fait et pour qui |
+| Compte créé | Une inscription (le nom et l'email utilisés) |
+| Connexion | Chaque connexion réussie ; une connexion rapide sans mot de passe (`DEV_MODE`) est signalée comme avertissement |
+| Déconnexion | Un utilisateur qui se déconnecte |
+| Demande de réinitialisation | Quelqu'un a demandé un lien de réinitialisation. Le journal précise si le compte existe (avertissement s'il n'existe pas), alors que le visiteur, lui, reçoit toujours la même réponse |
+| Mot de passe réinitialisé | Le lien de réinitialisation a été utilisé |
+| Mot de passe modifié | Un utilisateur a changé son mot de passe depuis « Mon compte » |
+
+Une inscription refusée parce que l'email est déjà pris apparaît comme un « Échec d'authentification ».
 
 Chaque ligne a aussi un **niveau** : Erreur, Avertissement ou Info.
+
+**Informations conservées.** Pour chaque événement d'un compte, le journal garde la personne (nom et email), la date, l'**adresse IP** et le **navigateur** utilisés. Un clic sur la ligne les affiche :
+
+![Une inscription dans le journal](screenshots/admin-logs-account.png)
+
+- Jamais de mot de passe, ni de lien de réinitialisation.
+- L'adresse IP et le navigateur sont des données personnelles : elles suivent la même durée de conservation que la ligne (30 jours par défaut).
+- Derrière Docker Desktop, ou derrière un reverse proxy, toutes les requêtes peuvent sembler venir de la même adresse (celle de Docker ou du proxy). Si l'API est placée derrière un reverse proxy, renseignez `TRUST_PROXY` dans le `.env` (nombre de proxys, ou `true`) pour voir l'adresse réelle des visiteurs ; ne le renseignez pas si l'API est jointe directement, l'en-tête pourrait alors être falsifié.
+- La recherche texte porte aussi sur l'adresse IP et le navigateur.
 
 **Trouver ce qu'on cherche**
 

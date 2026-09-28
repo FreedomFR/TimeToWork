@@ -60,6 +60,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   function logout() {
+    // Tell the server so the sign-out shows up in the admin journal. Best effort: the token is
+    // sent explicitly because it is removed right below, and a failure must not block signing out.
+    const token = localStorage.getItem("token");
+    if (token) {
+      api.post("/auth/logout", null, { headers: { Authorization: `Bearer ${token}` } }).catch(() => {});
+    }
     localStorage.removeItem("token");
     setUser(null);
   }

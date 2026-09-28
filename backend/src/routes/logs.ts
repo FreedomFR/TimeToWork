@@ -2,7 +2,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { parseBody } from "../lib/http";
-import { logEvent } from "../lib/logger";
+import { clientInfo, logEvent } from "../lib/logger";
 import { clientLogLimiter } from "../lib/rateLimit";
 import { requireAuth, AuthRequest } from "../middleware/auth";
 
@@ -31,6 +31,7 @@ router.post("/client", clientLogLimiter, (req: AuthRequest, res) => {
     // Only the page path: the query string and fragment may hold sensitive values
     path: data.url?.split(/[?#]/)[0],
     userId: req.userId,
+    ...clientInfo(req),
     details: { kind: data.kind, stack: data.stack },
   });
   res.status(204).send();

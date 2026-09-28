@@ -84,7 +84,13 @@ export type LogType =
   | "rate_limited"
   | "forbidden"
   | "validation_error"
-  | "admin_action";
+  | "admin_action"
+  | "account_created"
+  | "login"
+  | "logout"
+  | "password_reset_requested"
+  | "password_reset_done"
+  | "password_changed";
 
 export type LogLevel = "info" | "warn" | "error";
 
@@ -101,6 +107,9 @@ export interface LogEntry {
   /** Stack trace or small JSON, as text. */
   details: string | null;
   userEmail: string | null;
+  /** Address and browser the request came from. */
+  ip: string | null;
+  userAgent: string | null;
   /** null when the entry has no account, or the account was deleted. */
   user: { id: string; name: string; email: string } | null;
 }

@@ -9,6 +9,12 @@ export const LOG_TYPE_LABELS: Record<LogType, string> = {
   forbidden: "Accès refusé",
   validation_error: "Données invalides",
   admin_action: "Action d'administration",
+  account_created: "Compte créé",
+  login: "Connexion",
+  logout: "Déconnexion",
+  password_reset_requested: "Demande de réinitialisation",
+  password_reset_done: "Mot de passe réinitialisé",
+  password_changed: "Mot de passe modifié",
 };
 
 export const LOG_LEVEL_LABELS: Record<LogLevel, string> = {

@@ -16,9 +16,18 @@ import adminRoutes from "./routes/admin";
 import logRoutes from "./routes/logs";
 import { AuthRequest } from "./middleware/auth";
 import { requestLog } from "./middleware/requestLog";
-import { logEvent } from "./lib/logger";
+import { clientInfo, logEvent } from "./lib/logger";
 
 export const app = express();
+
+// Behind a reverse proxy (nginx, a load balancer…) every request appears to come from the proxy.
+// Setting TRUST_PROXY (a number of proxies, "true", or a subnet such as "loopback") makes Express
+// read the visitor's address from X-Forwarded-For instead, which the journal and the rate limits use.
+// Leave it unset when the API is reached directly: the header could then be forged by any client.
+if (process.env.TRUST_PROXY) {
+  const value = process.env.TRUST_PROXY;
+  app.set("trust proxy", /^\d+$/.test(value) ? Number(value) : value === "true" ? true : value);
+}
 
 // Authentication uses a Bearer token in a header (no cookies), so cross-origin requests
 // cannot ride on a victim's session; open CORS is therefore acceptable here.
@@ -59,6 +68,7 @@ app.use((err: { type?: string; message?: string; stack?: string }, req: Request,
     path: req.originalUrl.split("?")[0],
     statusCode: 500,
     userId: (req as AuthRequest).userId,
+    ...clientInfo(req),
     details: err.stack,
   });
   res.locals.logged = true;

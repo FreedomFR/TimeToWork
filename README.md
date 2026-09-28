@@ -58,7 +58,7 @@ Un compte peut avoir le rôle **administrateur**. Le lien « Administration » a
 - **Utilisateurs** : liste de tous les comptes (recherche par nom ou email) ; un bouton donne ou retire le rôle admin, après confirmation. Le dernier administrateur ne peut pas être rétrogradé, pour ne jamais se retrouver sans personne capable de gérer les rôles. Le rôle est lu dans la base à chaque requête : retirer le rôle prend effet immédiatement, même pour une session déjà ouverte.
 - **Journaux** : le journal de l'application, filtrable par **personne**, **type de bug**, niveau, période et texte libre (message, route, email, détails), triable en cliquant sur une colonne, paginé. Un clic sur une ligne affiche les détails (trace d'erreur…). Des compteurs par type permettent de filtrer d'un clic.
 
-Ce qui est journalisé : erreurs serveur (avec la trace), erreurs JavaScript survenues dans un navigateur, échecs d'authentification, limites de débit atteintes, accès refusés, données refusées par la validation (le champ concerné, jamais la valeur) et changements de rôle (qui a fait quoi). Jamais de mot de passe, de jeton ni de contenu de requête. Les entrées de plus de 30 jours sont supprimées automatiquement (`LOG_RETENTION_DAYS` pour changer la durée).
+Ce qui est journalisé : erreurs serveur (avec la trace), erreurs JavaScript survenues dans un navigateur, échecs d'authentification, limites de débit atteintes, accès refusés, données refusées par la validation (le champ concerné, jamais la valeur), changements de rôle (qui a fait quoi) et **l'activité des comptes** : inscriptions, connexions et déconnexions, demandes et changements de mot de passe, avec l'adresse IP et le navigateur utilisés. Jamais de mot de passe, de lien de réinitialisation, de jeton ni de contenu de requête. L'adresse IP et le navigateur sont des données personnelles, conservées aussi longtemps que la ligne (30 jours par défaut) ; derrière un reverse proxy, renseignez `TRUST_PROXY` pour voir l'adresse réelle des visiteurs. Les entrées de plus de 30 jours sont supprimées automatiquement (`LOG_RETENTION_DAYS` pour changer la durée).
 
 ### Créer le premier administrateur
 
@@ -139,13 +139,13 @@ Nécessite une instance PostgreSQL locale et un fichier `.env` dans `backend/` a
 
 Le projet a deux suites de tests, à lancer après avoir démarré la stack (`docker compose up -d`) :
 
-**Backend (142 tests)** — tests d'intégration (Vitest + Supertest) qui couvrent auth, projets, clients, tags, entrées de temps et rapports, sur une base Postgres de test dédiée (`timetowork_test`, créée et migrée automatiquement) :
+**Backend (151 tests)** — tests d'intégration (Vitest + Supertest) qui couvrent auth, projets, clients, tags, entrées de temps et rapports, sur une base Postgres de test dédiée (`timetowork_test`, créée et migrée automatiquement) :
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.test.yml run --rm backend-test
 ```
 
-**End-to-end (89 tests)** — Playwright, qui pilote un vrai navigateur contre l'application complète (inscription, connexion, minuteur, saisie manuelle, tags, projets/clients, édition en ligne, calendrier, tableau de bord, rapports, export, administration, mot de passe oublié, mode DEV) :
+**End-to-end (93 tests)** — Playwright, qui pilote un vrai navigateur contre l'application complète (inscription, connexion, minuteur, saisie manuelle, tags, projets/clients, édition en ligne, calendrier, tableau de bord, rapports, export, administration, mot de passe oublié, mode DEV) :
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.test.yml build frontend-test

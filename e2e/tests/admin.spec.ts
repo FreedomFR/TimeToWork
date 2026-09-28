@@ -134,7 +134,7 @@ test("the journal shows what happened, filterable by person and type of bug", as
 
   // By person
   await page.getByLabel("Filtrer par personne").selectOption({ label: `${victim.user.name} (${victim.user.email})` });
-  await expect(page.getByTestId("log-row")).toHaveCount(2);
+  await expect(page.getByTestId("log-row")).toHaveCount(3); // sign-up, failed login, refused data
   await expect(page.getByTestId("log-row").filter({ hasText: bystander.user.email })).toHaveCount(0);
 
   // By type of bug
@@ -181,7 +181,7 @@ test("the type counters show how many of each and filter on click", async ({ pag
 
   // Clicking again removes the filter
   await counters.getByRole("button", { name: /Données invalides/ }).click();
-  await expect(page.getByTestId("log-row")).toHaveCount(3);
+  await expect(page.getByTestId("log-row")).toHaveCount(4); // including the sign-up
 });
 
 test("the journal can be sorted by column, in both directions", async ({ page }) => {
@@ -191,7 +191,7 @@ test("the journal can be sorted by column, in both directions", async ({ page })
   await provokeFailedLogin(victim.user.email);
 
   await openLogsFor(page, victim.user.email);
-  await expect(page.getByTestId("log-row")).toHaveCount(2);
+  await expect(page.getByTestId("log-row")).toHaveCount(3);
 
   const type = page.getByRole("columnheader", { name: "TYPE" });
   const date = page.getByRole("columnheader", { name: "DATE" });
@@ -200,11 +200,11 @@ test("the journal can be sorted by column, in both directions", async ({ page })
 
   await date.getByRole("button").click();
   await expect(date).toHaveAttribute("aria-sort", "ascending");
-  await expect(page.getByTestId("log-row").first()).toContainText("Données invalides");
+  await expect(page.getByTestId("log-row").first()).toContainText("Compte créé"); // the account was created first
 
   await type.getByRole("button").click();
   await expect(type).toHaveAttribute("aria-sort", "ascending");
-  await expect(page.getByTestId("log-row").first()).toContainText("Échec d'authentification"); // auth_failed < validation_error
+  await expect(page.getByTestId("log-row").first()).toContainText("Compte créé"); // account_created < auth_failed < validation_error
   await type.getByRole("button").click();
   await expect(type).toHaveAttribute("aria-sort", "descending");
   await expect(page.getByTestId("log-row").first()).toContainText("Données invalides");
@@ -216,18 +216,18 @@ test("the journal is paginated", async ({ page }) => {
   for (let i = 0; i < 27; i++) await provokeValidationError(victim.token);
 
   await openLogsFor(page, victim.user.email);
-  await expect(page.getByText("27 entrée(s) · page 1 / 2")).toBeVisible();
+  await expect(page.getByText("28 entrée(s) · page 1 / 2")).toBeVisible();
   await expect(page.getByTestId("log-row")).toHaveCount(25);
   await expect(page.getByRole("button", { name: "Précédent" })).toBeDisabled();
 
   await page.getByRole("button", { name: "Suivant" }).click();
-  await expect(page.getByText("27 entrée(s) · page 2 / 2")).toBeVisible();
-  await expect(page.getByTestId("log-row")).toHaveCount(2);
+  await expect(page.getByText("28 entrée(s) · page 2 / 2")).toBeVisible();
+  await expect(page.getByTestId("log-row")).toHaveCount(3);
   await expect(page.getByRole("button", { name: "Suivant" })).toBeDisabled();
 
   await page.getByLabel("Par page").selectOption("50");
-  await expect(page.getByText("27 entrée(s) · page 1 / 1")).toBeVisible();
-  await expect(page.getByTestId("log-row")).toHaveCount(27);
+  await expect(page.getByText("28 entrée(s) · page 1 / 1")).toBeVisible();
+  await expect(page.getByTestId("log-row")).toHaveCount(28);
 });
 
 test("a JavaScript error on a user's screen ends up in the journal, shown as plain text", async ({ page }) => {

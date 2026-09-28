@@ -281,6 +281,7 @@ export default function LogsPanel() {
                       {(entry.user?.email ?? entry.userEmail) && (
                         <div className="text-xs text-muted">{entry.user?.email ?? entry.userEmail}</div>
                       )}
+                      {entry.ip && <div className="text-xs text-muted font-mono">{entry.ip}</div>}
                     </td>
                     <td className="px-4 py-3 text-gray-200">
                       <div className="break-words">{entry.message}</div>
@@ -295,12 +296,28 @@ export default function LogsPanel() {
                   {open && (
                     <tr className="border-b border-border bg-bg/40">
                       <td colSpan={5} className="px-4 py-3">
+                        {(entry.ip || entry.userAgent) && (
+                          <dl data-testid="log-client-info" className="grid grid-cols-[110px_1fr] gap-y-1 text-xs mb-3">
+                            {entry.ip && (
+                              <>
+                                <dt className="text-muted">Adresse IP</dt>
+                                <dd className="text-gray-300 font-mono">{entry.ip}</dd>
+                              </>
+                            )}
+                            {entry.userAgent && (
+                              <>
+                                <dt className="text-muted">Navigateur</dt>
+                                <dd className="text-gray-300 break-words">{entry.userAgent}</dd>
+                              </>
+                            )}
+                          </dl>
+                        )}
                         {entry.details ? (
                           <pre data-testid="log-details" className="text-xs text-gray-300 whitespace-pre-wrap break-words font-mono max-h-64 overflow-auto">
                             {formatDetails(entry.details)}
                           </pre>
                         ) : (
-                          <p className="text-xs text-muted">Aucun détail.</p>
+                          !entry.ip && !entry.userAgent && <p className="text-xs text-muted">Aucun détail.</p>
                         )}
                       </td>
                     </tr>

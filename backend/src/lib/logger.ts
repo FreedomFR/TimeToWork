@@ -7,6 +7,7 @@
  *  - every field is truncated, so no request can bloat the table;
  *  - writing a log must never break the request that triggered it (errors are swallowed).
  */
+import { Request } from "express";
 import { prisma } from "./prisma";
 
 /** The kinds of event, i.e. the "type of bug" an admin can filter on. */
@@ -18,6 +19,13 @@ export const LOG_TYPES = [
   "forbidden", // access refused (403), e.g. a non-admin calling an admin route
   "validation_error", // the API refused the data it received (400)
   "admin_action", // audit trail: role changes
+  // Account activity: who signed up, signed in and out, and touched a password
+  "account_created",
+  "login",
+  "logout",
+  "password_reset_requested",
+  "password_reset_done",
+  "password_changed",
 ] as const;
 export type LogType = (typeof LOG_TYPES)[number];
 
@@ -36,12 +44,23 @@ export interface LogInput {
   /** The account concerned; its email is looked up when `userEmail` isn't given. */
   userId?: string | null;
   userEmail?: string | null;
+  /** Address and browser the request came from (see `clientInfo`). */
+  ip?: string | null;
+  userAgent?: string | null;
+}
+
+/** Where a request came from, to attach to a journal entry. */
+export function clientInfo(req: Request): { ip: string | undefined; userAgent: string | undefined } {
+  // Node reports IPv4 clients as IPv4-mapped IPv6 ("::ffff:1.2.3.4"): show the plain address
+  return { ip: req.ip?.replace(/^::ffff:/, ""), userAgent: req.get("user-agent") };
 }
 
 const MAX_MESSAGE = 500;
 const MAX_DETAILS = 4000;
 const MAX_PATH = 300;
 const MAX_EMAIL = 254;
+const MAX_IP = 64;
+const MAX_USER_AGENT = 200;
 const DEFAULT_RETENTION_DAYS = 30;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -69,6 +88,8 @@ async function write(input: LogInput) {
       details: details ? cut(details, MAX_DETAILS) : undefined,
       userId: input.userId ?? undefined,
       userEmail: userEmail ? cut(userEmail, MAX_EMAIL) : undefined,
+      ip: input.ip ? cut(input.ip, MAX_IP) : undefined,
+      userAgent: input.userAgent ? cut(input.userAgent, MAX_USER_AGENT) : undefined,
     },
   });
 }
