@@ -3,8 +3,8 @@ RUN apk add --no-cache openssl
 WORKDIR /app
 
 FROM base AS deps
-COPY package.json package-lock.json* ./
-RUN npm install
+COPY package.json package-lock.json ./
+RUN npm ci
 
 FROM base AS build
 COPY --from=deps /app/node_modules ./node_modules

@@ -1,7 +1,8 @@
 FROM node:20-alpine AS build
 WORKDIR /app
-COPY package.json package-lock.json* ./
-RUN npm install
+COPY package.json package-lock.json ./
+# ci: installs exactly what package-lock.json says (reproducible builds)
+RUN npm ci
 COPY . .
 ARG VITE_API_URL=http://localhost:4000/api
 ENV VITE_API_URL=$VITE_API_URL
