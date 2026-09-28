@@ -36,7 +36,7 @@ Crée un compte depuis l'écran d'inscription, puis crée tes projets/clients et
 - Rapports (Résumé, Détaillé, Hebdomadaire) avec filtres, plage de dates personnalisée, arrondi au quart d'heure
 - Export des rapports en CSV, Excel, PDF ou JSON (contenu et colonnes au choix)
 - Administration : rôle admin (donné ou retiré depuis l'appli), journal de l'application filtrable par personne et par type de bug
-- Changement de mot de passe une fois connecté (page "Mon compte")
+- Changement de mot de passe et d'adresse email une fois connecté (page "Mon compte") : le mot de passe actuel est exigé, l'ancienne adresse est prévenue par email
 - Réinitialisation du mot de passe par email ("Mot de passe oublié ?" sur l'écran de connexion)
 
 ## Réinitialisation du mot de passe
@@ -139,13 +139,13 @@ Nécessite une instance PostgreSQL locale et un fichier `.env` dans `backend/` a
 
 Le projet a deux suites de tests, à lancer après avoir démarré la stack (`docker compose up -d`) :
 
-**Backend (151 tests)** — tests d'intégration (Vitest + Supertest) qui couvrent auth, projets, clients, tags, entrées de temps et rapports, sur une base Postgres de test dédiée (`timetowork_test`, créée et migrée automatiquement) :
+**Backend (163 tests)** — tests d'intégration (Vitest + Supertest) qui couvrent auth, projets, clients, tags, entrées de temps et rapports, sur une base Postgres de test dédiée (`timetowork_test`, créée et migrée automatiquement) :
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.test.yml run --rm backend-test
 ```
 
-**End-to-end (93 tests)** — Playwright, qui pilote un vrai navigateur contre l'application complète (inscription, connexion, minuteur, saisie manuelle, tags, projets/clients, édition en ligne, calendrier, tableau de bord, rapports, export, administration, mot de passe oublié, mode DEV) :
+**End-to-end (99 tests)** — Playwright, qui pilote un vrai navigateur contre l'application complète (inscription, connexion, minuteur, saisie manuelle, tags, projets/clients, édition en ligne, calendrier, tableau de bord, rapports, export, administration, mot de passe oublié, mode DEV) :
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.test.yml build frontend-test

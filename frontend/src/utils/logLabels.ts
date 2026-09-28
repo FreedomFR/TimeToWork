@@ -15,6 +15,7 @@ export const LOG_TYPE_LABELS: Record<LogType, string> = {
   password_reset_requested: "Demande de réinitialisation",
   password_reset_done: "Mot de passe réinitialisé",
   password_changed: "Mot de passe modifié",
+  email_changed: "Email modifié",
 };
 
 export const LOG_LEVEL_LABELS: Record<LogLevel, string> = {

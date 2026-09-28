@@ -75,9 +75,19 @@ Si aucun serveur email n'est configuré (`SMTP_HOST` vide), aucun email ne part 
 docker compose logs backend
 ```
 
-### Mon compte : changer son mot de passe
+### Mon compte : changer son email ou son mot de passe
 
-Le lien « Mon compte » du menu affiche votre nom et votre email, et permet de changer de mot de passe : saisissez l'actuel, puis le nouveau (8 caractères minimum, différent de l'actuel) deux fois.
+Le lien « Mon compte » du menu affiche votre nom et votre email, et permet de changer l'un comme l'autre.
+
+**Changer l'adresse email.** Saisissez le nouvel email **deux fois** (une faute de frappe vous empêcherait ensuite de réinitialiser votre mot de passe), puis votre **mot de passe actuel** : l'email sert à se connecter et à recevoir les liens de réinitialisation, donc celui ou celle qui le contrôle contrôle le compte. Une fois validé :
+
+- vous vous connectez désormais avec la nouvelle adresse (l'ancienne ne fonctionne plus et peut être utilisée par quelqu'un d'autre) ;
+- votre session reste ouverte, et le menu affiche la nouvelle adresse tout de suite ;
+- l'**ancienne adresse reçoit un email d'information** (sans SMTP, il apparaît seulement dans les logs du backend) : si le changement n'est pas de vous, c'est ainsi que vous le découvrez ;
+- un lien de réinitialisation demandé avant le changement est annulé ;
+- l'adresse doit être différente de l'actuelle et ne pas déjà appartenir à un autre compte (majuscules et minuscules comptent pareil).
+
+**Changer le mot de passe.** Saisissez l'actuel, puis le nouveau (8 caractères minimum, différent de l'actuel) deux fois.
 
 ![Mon compte](screenshots/account.png)
 
@@ -302,6 +312,7 @@ Ce qui est enregistré, par **type** :
 | Demande de réinitialisation | Quelqu'un a demandé un lien de réinitialisation. Le journal précise si le compte existe (avertissement s'il n'existe pas), alors que le visiteur, lui, reçoit toujours la même réponse |
 | Mot de passe réinitialisé | Le lien de réinitialisation a été utilisé |
 | Mot de passe modifié | Un utilisateur a changé son mot de passe depuis « Mon compte » |
+| Email modifié | Un utilisateur a changé l'adresse de son compte : l'ancienne et la nouvelle adresse sont notées dans les détails |
 
 Une inscription refusée parce que l'email est déjà pris apparaît comme un « Échec d'authentification ».
 

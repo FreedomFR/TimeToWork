@@ -90,7 +90,8 @@ export type LogType =
   | "logout"
   | "password_reset_requested"
   | "password_reset_done"
-  | "password_changed";
+  | "password_changed"
+  | "email_changed";
 
 export type LogLevel = "info" | "warn" | "error";
 

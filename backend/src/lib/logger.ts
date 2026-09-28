@@ -26,6 +26,7 @@ export const LOG_TYPES = [
   "password_reset_requested",
   "password_reset_done",
   "password_changed",
+  "email_changed",
 ] as const;
 export type LogType = (typeof LOG_TYPES)[number];
 

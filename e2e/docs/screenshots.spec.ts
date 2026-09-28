@@ -277,7 +277,10 @@ test("documentation screenshots", async ({ page }) => {
   // ── Account ─────────────────────────────────────────────────────────────
   await page.getByRole("link", { name: "Mon compte" }).click();
   await expect(page.getByRole("heading", { name: "Mon compte" })).toBeVisible();
+  // The page has three cards now: a taller window shows them all
+  await page.setViewportSize({ width: 1440, height: 1100 });
   await shot(page, "account");
+  await page.setViewportSize({ width: 1440, height: 900 });
 
   // ── Administration (another demo account, promoted the way the first admin is) ──
   const alex = await demoAccount("Alex Admin", "alex");

@@ -4,15 +4,16 @@
  */
 import { Request, Router } from "express";
 import bcrypt from "bcryptjs";
-import { Role } from "@prisma/client";
+import { Prisma, Role } from "@prisma/client";
 import crypto from "crypto";
 import { z } from "zod";
 import { prisma } from "../lib/prisma";
 import { notFound, parseBody } from "../lib/http";
 import { requireAuth, signToken, AuthRequest } from "../middleware/auth";
-import { sendPasswordResetEmail } from "../lib/mailer";
+import { sendEmailChangedNotice, sendPasswordResetEmail } from "../lib/mailer";
 import { LogLevel, LogType, clientInfo, logEvent } from "../lib/logger";
 import {
+  changeEmailLimiter,
   changePasswordLimiter,
   forgotPasswordByEmailLimiter,
   forgotPasswordByIpLimiter,
@@ -29,6 +30,7 @@ const BCRYPT_ROUNDS = 10;
 // Same message for "unknown email" and "wrong password" so accounts can't be probed.
 const INVALID_CREDENTIALS = "Email ou mot de passe incorrect";
 const WRONG_CURRENT_PASSWORD = "Mot de passe actuel incorrect";
+const EMAIL_TAKEN = "Cet email est déjà utilisé";
 // Compared against when the email is unknown, so a login takes as long whether or not the
 // account exists (otherwise response time would reveal which emails are registered).
 const DUMMY_HASH = bcrypt.hashSync("unused-password-for-timing", BCRYPT_ROUNDS);
@@ -82,7 +84,7 @@ router.post("/register", registerLimiter, async (req, res) => {
   const existing = await prisma.user.findUnique({ where: { email: data.email } });
   if (existing) {
     res.locals.log = { level: "warn", type: "auth_failed", message: "Inscription refusée : email déjà utilisé", userEmail: data.email };
-    return res.status(409).json({ error: "Cet email est déjà utilisé" });
+    return res.status(409).json({ error: EMAIL_TAKEN });
   }
 
   const user = await prisma.user.create({
@@ -174,6 +176,81 @@ router.post("/change-password", requireAuth, changePasswordLimiter, async (req: 
   });
   record(req, "password_changed", { message: "Mot de passe modifié", userId: user.id, userEmail: user.email, statusCode: 200 });
   res.json({ message: "Mot de passe mis à jour" });
+});
+
+const changeEmailSchema = z.object({
+  currentPassword: z.string().min(1).max(128),
+  newEmail: z.string().email().max(254),
+});
+
+// Change the email of the signed-in user. Like a password change it needs the current password:
+// the email is what "forgot password" links go to, so whoever controls it controls the account.
+// Sessions stay valid (the token holds the user id, not the email); a pending reset link, issued
+// for the old address, is cancelled; the old address is told about the change.
+router.post("/change-email", requireAuth, changeEmailLimiter, async (req: AuthRequest, res) => {
+  const data = parseBody(changeEmailSchema, req.body, res);
+  if (!data) return;
+
+  const user = await prisma.user.findUnique({ where: { id: req.userId! } });
+  if (!user) return notFound(res, "User not found");
+
+  // 400 rather than 401, as for the password: the frontend logs out on any 401
+  if (!(await bcrypt.compare(data.currentPassword, user.password))) {
+    res.locals.log = { level: "warn", type: "auth_failed", message: "Changement d'email : mot de passe actuel incorrect" };
+    return res.status(400).json({ error: WRONG_CURRENT_PASSWORD });
+  }
+  if (data.newEmail.toLowerCase() === user.email.toLowerCase()) {
+    return res.status(400).json({ error: "Le nouvel email est identique à l'actuel" });
+  }
+
+  // Compared without regard to case, so "Bob@x.com" can't be created next to "bob@x.com"
+  const taken = await prisma.user.findFirst({
+    where: { id: { not: user.id }, email: { equals: data.newEmail, mode: "insensitive" } },
+    select: { id: true },
+  });
+  if (taken) {
+    res.locals.log = {
+      level: "warn",
+      type: "auth_failed",
+      message: "Changement d'email refusé : email déjà utilisé",
+      userId: user.id,
+      userEmail: user.email,
+      details: { requestedEmail: data.newEmail },
+    };
+    return res.status(409).json({ error: EMAIL_TAKEN });
+  }
+
+  let updated;
+  try {
+    updated = await prisma.user.update({
+      where: { id: user.id },
+      data: { email: data.newEmail, resetTokenHash: null, resetTokenExpiresAt: null },
+    });
+  } catch (err) {
+    // Someone took the address between the check above and the update
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      return res.status(409).json({ error: EMAIL_TAKEN });
+    }
+    throw err;
+  }
+
+  record(req, "email_changed", {
+    message: "Email modifié",
+    userId: user.id,
+    userEmail: updated.email,
+    statusCode: 200,
+    details: { from: user.email, to: updated.email },
+  });
+  // Best effort: a mail problem must not undo or fail a change that has been made
+  void (async () => {
+    try {
+      await sendEmailChangedNotice(user.email, updated.email);
+    } catch (err) {
+      console.error("[mailer] email-change notice failed:", err);
+    }
+  })();
+
+  res.json(publicUser(updated));
 });
 
 // ─── Password reset ────────────────────────────────────────────────────────

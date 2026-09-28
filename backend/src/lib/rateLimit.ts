@@ -69,3 +69,11 @@ export const clientLogLimiter = limiter({
   max: 30,
   keyPart: (req) => (req as AuthRequest).userId ?? "",
 });
+
+/** Wrong "current password" guesses on the change-of-email route (same idea as the password one). */
+export const changeEmailLimiter = limiter({
+  windowMs: 15 * MINUTE,
+  max: 10,
+  keyPart: (req) => (req as AuthRequest).userId ?? "",
+  failuresOnly: true,
+});
