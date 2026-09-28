@@ -17,3 +17,4 @@ e2e/.auth/
 
 # Database backups (taken by the "backup" service)
 backups/
+backups-copy/

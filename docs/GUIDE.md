@@ -376,6 +376,14 @@ Un service `backup` démarre avec le reste (`docker compose up`) et copie la bas
   docker compose logs backup
   ```
 
+**Copie sur un autre disque.** Une sauvegarde à côté de la base ne survit pas à la panne du disque. Pour que chaque sauvegarde soit aussi copiée ailleurs (clé USB, disque externe, partage réseau/NAS, dossier synchronisé OneDrive…), indiquez le dossier dans `.env` (il doit exister ; slashs `/` même sous Windows) :
+
+```bash
+BACKUP_COPY_PATH=D:/Sauvegardes/TimeToWork
+```
+
+puis relancez le service : `docker compose up -d backup`. La copie a le même nom, la même date et la même rotation que l'original. Si le dossier est inaccessible (disque débranché), la sauvegarde principale est quand même faite, les copies manquées sont rattrapées dès que le dossier revient, et le service passe à *unhealthy* tant que la copie n'est pas à jour. Sans `BACKUP_COPY_PATH`, il n'y a pas de copie.
+
 Commandes utiles :
 
 ```bash
@@ -399,7 +407,7 @@ La base actuelle est **d'abord copiée** dans `backups/pre-restore_….dump` (ja
 **À savoir**
 
 - Les sauvegardes contiennent **toutes les données** : mots de passe hachés, adresses email, journal. Le dossier `backups/` est exclu de git ; gardez-le privé et ne le partagez pas.
-- Elles ne sont **pas chiffrées** et se trouvent sur le même disque que la base : elles protègent d'une erreur de manipulation, d'un volume Docker supprimé ou d'une mise à jour ratée, pas d'une panne du disque. Copiez régulièrement un fichier `.dump` ailleurs (autre disque, stockage chiffré).
+- Elles ne sont **pas chiffrées** et se trouvent sur le même disque que la base : elles protègent d'une erreur de manipulation, d'un volume Docker supprimé ou d'une mise à jour ratée, pas d'une panne du disque, sauf si vous avez activé la copie sur un autre disque (`BACKUP_COPY_PATH`, ci-dessus). Si ce dossier est dans le cloud, sachez que les fichiers y partent en clair.
 - Le service a ses propres tests (`docker compose run --rm --entrypoint /bin/sh backup /scripts/test.sh`) : sauvegarde, restauration, rotation, échecs et contrôle de santé, sur des bases jetables.
 
 

@@ -7,6 +7,9 @@
 #   backup.sh restore <file> [db]      restore a backup (into `db`, default: the live database)
 #   backup.sh health                   exit 0 if a recent backup exists (used by the container's healthcheck)
 #
+# With BACKUP_COPY_DIR set, every backup is also copied there (another disk, a NAS, a synchronised
+# folder...), with the same rotation; `health` then checks the copy too.
+#
 # The connection comes from the standard PG* variables (PGHOST, PGUSER, PGPASSWORD, PGDATABASE).
 # Backups are compressed pg_dump files (`.dump`, custom format) in BACKUP_DIR, named
 # timetowork_YYYYMMDD_HHMMSS.dump (UTC). They contain everything, password hashes included:
@@ -18,6 +21,7 @@ INTERVAL_MIN="${BACKUP_INTERVAL_MINUTES:-1440}"   # how often
 KEEP_DAYS="${BACKUP_KEEP_DAYS:-14}"               # backups older than this are deleted...
 KEEP_MIN="${BACKUP_KEEP_MIN:-3}"                  # ...but the newest ones are always kept, whatever their age
 RETRY_MIN=15                                      # after a failed backup, try again sooner than the interval
+COPY_DIR="${BACKUP_COPY_DIR:-}"                   # optional second folder every backup is copied to
 PREFIX="timetowork"
 
 log() { printf '[backup] %s %s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$*"; }
@@ -34,18 +38,18 @@ check_settings() {
   [ "$INTERVAL_MIN" -ge 1 ] || die "BACKUP_INTERVAL_MINUTES must be at least 1"
 }
 
-# Backups newest first (empty when there is none)
-newest_first() { ls -1t "$BACKUP_DIR"/${PREFIX}_*.dump 2>/dev/null; }
+# The backups of a folder, newest first (empty when there is none)
+newest_first() { ls -1t "$1"/${PREFIX}_*.dump 2>/dev/null; }
 
-minutes_since_last() {
-  newest=$(newest_first | head -n 1)
+minutes_since_last() { # folder
+  newest=$(newest_first "$1" | head -n 1)
   [ -n "$newest" ] || return 1
   echo $(( ($(date +%s) - $(stat -c %Y "$newest")) / 60 ))
 }
 
-# Deletes backups older than KEEP_DAYS, always sparing the KEEP_MIN newest ones
-rotate() {
-  newest_first | tail -n +$((KEEP_MIN + 1)) | while read -r file; do
+# Deletes the backups of a folder older than KEEP_DAYS, always sparing the KEEP_MIN newest ones
+rotate() { # folder
+  newest_first "$1" | tail -n +$((KEEP_MIN + 1)) | while read -r file; do
     if [ -n "$(find "$file" -mtime +"$KEEP_DAYS" 2>/dev/null)" ]; then
       rm -f "$file" && log "deleted (older than $KEEP_DAYS days): $file"
     fi
@@ -75,7 +79,35 @@ backup_once() {
 
   mv "$tmp" "$final"
   log "OK: $final ($(du -h "$final" | cut -f1))"
-  rotate
+  rotate "$BACKUP_DIR"
+  # The backup itself succeeded whatever happens to its copy: a failed copy is retried with the
+  # next backup, and the health check reports a copy that stays out of date
+  sync_copy || log "the copy will be caught up at the next backup"
+}
+
+# Copies the backups that are not yet in COPY_DIR (another disk, a NAS, a synchronised folder...),
+# so several missed copies are caught up at once. Same file name, same date, same rotation.
+sync_copy() {
+  [ -n "$COPY_DIR" ] || return 0
+  if ! mkdir -p "$COPY_DIR" 2>/dev/null || [ ! -w "$COPY_DIR" ]; then
+    log "ERROR: cannot write to the copy folder $COPY_DIR"
+    return 1
+  fi
+  status=0
+  for file in $(newest_first "$BACKUP_DIR"); do
+    name=$(basename "$file")
+    [ -e "$COPY_DIR/$name" ] && continue
+    # Temporary name first, like the backup itself: a half-copied file never looks like a good one
+    if cp -p "$file" "$COPY_DIR/$name.tmp" && mv "$COPY_DIR/$name.tmp" "$COPY_DIR/$name"; then
+      log "copied: $COPY_DIR/$name"
+    else
+      rm -f "$COPY_DIR/$name.tmp"
+      log "ERROR: could not copy $name to $COPY_DIR"
+      status=1
+    fi
+  done
+  rotate "$COPY_DIR"
+  return $status
 }
 
 sleep_minutes() { # interruptible, so the container stops at once
@@ -87,11 +119,14 @@ run() {
   check_settings
   trap 'log "stopping"; exit 0' TERM INT
   log "every $INTERVAL_MIN min, keeping $KEEP_DAYS days (at least the last $KEEP_MIN) in $BACKUP_DIR"
+  [ -z "$COPY_DIR" ] || log "each backup is also copied to $COPY_DIR"
 
   until pg_isready -q; do log "waiting for the database..."; sleep 3; done
 
+  sync_copy || true   # catch up on copies missed while the stack was stopped
+
   # Restarting the stack must not add a backup each time: wait out what is left of the interval
-  if age=$(minutes_since_last) && [ "$age" -lt "$INTERVAL_MIN" ]; then
+  if age=$(minutes_since_last "$BACKUP_DIR") && [ "$age" -lt "$INTERVAL_MIN" ]; then
     log "the last backup is $age min old: next one in $((INTERVAL_MIN - age)) min"
     sleep_minutes $((INTERVAL_MIN - age))
   fi
@@ -108,12 +143,15 @@ run() {
   done
 }
 
-# Healthy = there is a backup no older than two intervals (plus a margin)
+# Healthy = there is a backup no older than two intervals (plus a margin), and the same goes for
+# the copy when there is one (an unplugged disk, an unreachable NAS...)
 health() {
   check_settings
-  age=$(minutes_since_last) || { echo "no backup yet"; exit 1; }
-  [ "$age" -le $((2 * INTERVAL_MIN + 20)) ] || { echo "last backup is $age min old"; exit 1; }
-  echo "last backup $age min ago"
+  for dir in "$BACKUP_DIR" $COPY_DIR; do
+    age=$(minutes_since_last "$dir") || { echo "no backup yet in $dir"; exit 1; }
+    [ "$age" -le $((2 * INTERVAL_MIN + 20)) ] || { echo "last backup in $dir is $age min old"; exit 1; }
+    echo "last backup in $dir: $age min ago"
+  done
 }
 
 # Restores `file` into `target` (default: the live database). Before touching the live database it
@@ -147,7 +185,10 @@ restore() {
 case "${1:-run}" in
   run) run ;;
   once) check_settings; until pg_isready -q; do sleep 2; done; backup_once ;;
-  list) ls -lh "$BACKUP_DIR"/*.dump 2>/dev/null || echo "no backup in $BACKUP_DIR" ;;
+  list)
+    for dir in "$BACKUP_DIR" $COPY_DIR; do
+      echo "$dir:"; ls -lh "$dir"/*.dump 2>/dev/null || echo "  no backup"
+    done ;;
   restore) shift; restore "$@" ;;
   health) health ;;
   *) die "unknown command '$1' (run | once | list | restore <file> [db] | health)" ;;

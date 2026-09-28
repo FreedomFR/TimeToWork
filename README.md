@@ -36,7 +36,7 @@ Crée un compte depuis l'écran d'inscription, puis crée tes projets/clients et
 - Rapports (Résumé, Détaillé, Hebdomadaire) avec filtres, plage de dates personnalisée, arrondi au quart d'heure
 - Export des rapports en CSV, Excel, PDF ou JSON (contenu et colonnes au choix)
 - Administration : rôle admin (donné ou retiré depuis l'appli), journal de l'application filtrable par personne et par type de bug
-- Sauvegardes automatiques de la base (dossier `backups/`, fréquence et rotation réglables, restauration en une commande)
+- Sauvegardes automatiques de la base (dossier `backups/`, fréquence et rotation réglables, restauration en une commande, copie optionnelle vers un autre disque avec `BACKUP_COPY_PATH`)
 - Changement de mot de passe et d'adresse email une fois connecté (page "Mon compte") : le mot de passe actuel est exigé, l'ancienne adresse est prévenue par email
 - Réinitialisation du mot de passe par email ("Mot de passe oublié ?" sur l'écran de connexion)
 
@@ -167,7 +167,7 @@ docker run --rm --network timetowork_default \
   sh -c "apk add --no-cache openssl >/dev/null && npx tsx scripts/cleanup-e2e-users.ts"
 ```
 
-**Sauvegardes (37 vérifications)** — le script de sauvegarde est testé sur des bases jetables (sauvegarde, restauration, rotation, échecs, contrôle de santé, boucle) :
+**Sauvegardes (49 vérifications)** — le script de sauvegarde est testé sur des bases jetables (sauvegarde, restauration, rotation, copie sur un second dossier, échecs, contrôle de santé, boucle) :
 
 ```bash
 docker compose run --rm --entrypoint /bin/sh backup /scripts/test.sh

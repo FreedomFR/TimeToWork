@@ -8,6 +8,7 @@ set -u
 
 SCRIPT=/scripts/backup.sh
 DIR=/tmp/backup-test
+COPY=/tmp/backup-test-copy
 SRC=backup_test_src
 DST=backup_test_dst
 export BACKUP_DIR="$DIR"
@@ -27,6 +28,7 @@ equal() { # description, expected, actual
 
 sql() { psql -d "$1" -Atc "$2"; }
 count_dumps() { ls "$DIR"/timetowork_*.dump 2>/dev/null | wc -l | tr -d ' '; }
+count_copies() { ls "$COPY"/timetowork_*.dump 2>/dev/null | wc -l | tr -d ' '; }
 # A copy of a real backup, made to look `days` days old
 age_copy() { # source, name, days
   cp "$1" "$DIR/$2"
@@ -36,7 +38,7 @@ age_copy() { # source, name, days
 cleanup() {
   psql -d postgres -Atc "DROP DATABASE IF EXISTS $SRC" >/dev/null 2>&1
   psql -d postgres -Atc "DROP DATABASE IF EXISTS $DST" >/dev/null 2>&1
-  rm -rf "$DIR" /tmp/backup-source.dump
+  rm -rf "$DIR" "$COPY" /tmp/backup-source.dump
 }
 trap cleanup EXIT
 cleanup
@@ -96,6 +98,39 @@ check_not "the 28-day-old one is deleted" ls "$DIR"/timetowork_20200101_0000c.du
 BACKUP_KEEP_MIN=1 sh "$SCRIPT" once >/dev/null 2>&1
 equal "with BACKUP_KEEP_MIN=1 the old ones go too" 2 "$(count_dumps)"
 check_not "the 16-day-old one is now deleted" ls "$DIR"/timetowork_20200101_0000e.dump
+
+echo "== copy to a second folder"
+rm -f "$DIR"/*.dump
+export BACKUP_COPY_DIR="$COPY"
+sh "$SCRIPT" once >/dev/null 2>&1
+equal "the backup is copied (folder created on the fly)" 1 "$(count_copies)"
+equal "under the same name" "$(basename "$(ls "$DIR"/timetowork_*.dump)")" "$(basename "$(ls "$COPY"/timetowork_*.dump)")"
+check "the copy is a valid dump" pg_restore --list "$(ls "$COPY"/timetowork_*.dump)"
+check "no temporary file is left in the copy folder" sh -c "! ls $COPY/*.tmp"
+sleep 1; sh "$SCRIPT" once >/dev/null 2>&1
+equal "every new backup is copied too" 2 "$(count_copies)"
+check "health is fine with a fresh copy" sh "$SCRIPT" health
+
+rm -f "$COPY"/*.dump
+sh "$SCRIPT" once >/dev/null 2>&1
+equal "copies that were missed are caught up" 3 "$(count_copies)"
+
+rm -f "$COPY"/*.dump
+check_not "health fails when the copy is empty" sh "$SCRIPT" health
+sh "$SCRIPT" once >/dev/null 2>&1
+
+# Old copies follow the same rotation as the backups
+cp -p "$(ls "$DIR"/timetowork_*.dump | head -n 1)" "$COPY/timetowork_20200101_000000.dump"
+touch -t "$(date -d "@$(( $(date +%s) - 40 * 86400 ))" +%Y%m%d%H%M)" "$COPY/timetowork_20200101_000000.dump"
+BACKUP_KEEP_MIN=1 sh "$SCRIPT" once >/dev/null 2>&1
+check_not "an old copy is rotated like the backups" ls "$COPY"/timetowork_20200101_000000.dump
+
+# A copy folder that cannot be written to must not lose the backup
+before=$(count_dumps)
+check "a copy folder that cannot be written to does not fail the backup" env BACKUP_COPY_DIR=/proc/nope sh "$SCRIPT" once
+equal "the backup itself is still taken" "$((before + 1))" "$(count_dumps)"
+check_not "but health reports it" env BACKUP_COPY_DIR=/proc/nope sh "$SCRIPT" health
+unset BACKUP_COPY_DIR
 
 echo "== failures"
 before=$(count_dumps)

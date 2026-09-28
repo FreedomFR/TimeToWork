@@ -59,8 +59,11 @@ services:
       BACKUP_INTERVAL_MINUTES: ${BACKUP_INTERVAL_MINUTES:-1440}
       BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
       BACKUP_KEEP_MIN: ${BACKUP_KEEP_MIN:-3}
+      # Copy of every backup, only when BACKUP_COPY_PATH is set in .env (a folder on another disk, a NAS...)
+      BACKUP_COPY_DIR: ${BACKUP_COPY_PATH:+/backups-copy}
     volumes:
       - ./backups:/backups
+      - ${BACKUP_COPY_PATH:-./backups-copy}:/backups-copy
       - ./backup:/scripts:ro
     entrypoint: ["/bin/sh", "/scripts/backup.sh"]
     command: ["run"]
