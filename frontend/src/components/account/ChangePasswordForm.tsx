@@ -38,7 +38,7 @@ export default function ChangePasswordForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className={`${CARD_CLASS} p-6 max-w-xl space-y-4`}>
+    <form onSubmit={handleSubmit} className={`${CARD_CLASS} p-6 space-y-4`}>
       <h2 className="text-base font-semibold text-gray-100">Changer le mot de passe</h2>
 
       <TextField

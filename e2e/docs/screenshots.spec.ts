@@ -277,8 +277,8 @@ test("documentation screenshots", async ({ page }) => {
   // ── Account ─────────────────────────────────────────────────────────────
   await page.getByRole("link", { name: "Mon compte" }).click();
   await expect(page.getByRole("heading", { name: "Mon compte" })).toBeVisible();
-  // The page has four cards now: a taller window shows them all
-  await page.setViewportSize({ width: 1440, height: 1400 });
+  // The page is one screen tall: profile, appearance, then email and password side by side
+  await page.setViewportSize({ width: 1440, height: 1000 });
   await shot(page, "account");
   // The appearance settings on their own, for the guide
   await page.waitForTimeout(300);

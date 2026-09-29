@@ -1,5 +1,5 @@
 import { test, expect, Page } from "@playwright/test";
-import { registerAndLogin, registerFreshUser } from "./helpers";
+import { registerAndLogin, registerFreshAdmin, registerFreshUser } from "./helpers";
 
 async function openAccount(page: Page) {
   await page.getByRole("link", { name: "Mon compte" }).click();
@@ -72,4 +72,21 @@ test("reusing the current password as the new one is rejected", async ({ page })
 
   await fillPasswordForm(page, user.password, user.password);
   await expect(page.getByText("Le nouveau mot de passe doit être différent de l'actuel")).toBeVisible();
+});
+
+test("the profile banner shows the initial, the name, the email and the role", async ({ page }) => {
+  const user = await registerAndLogin(page);
+  await openAccount(page);
+
+  const profile = page.getByRole("region", { name: "Profil" });
+  await expect(profile.getByText(user.name, { exact: true })).toBeVisible();
+  await expect(profile.getByText(user.email, { exact: true })).toBeVisible();
+  await expect(profile.getByText(user.name[0].toUpperCase(), { exact: true })).toBeVisible();
+  await expect(profile.getByText("Utilisateur", { exact: true })).toBeVisible();
+});
+
+test("an administrator sees their role in the profile banner", async ({ page }) => {
+  await registerFreshAdmin(page);
+  await openAccount(page);
+  await expect(page.getByRole("region", { name: "Profil" }).getByText("Administrateur", { exact: true })).toBeVisible();
 });

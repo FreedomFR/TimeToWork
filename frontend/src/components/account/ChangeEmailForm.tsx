@@ -50,7 +50,7 @@ export default function ChangeEmailForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className={`${CARD_CLASS} p-6 mb-6 max-w-xl space-y-4`}>
+    <form onSubmit={handleSubmit} className={`${CARD_CLASS} p-6 space-y-4`}>
       <h2 className="text-base font-semibold text-gray-100">Changer l'adresse email</h2>
       <p className="text-xs text-muted">
         Vous vous connecterez avec la nouvelle adresse, et l'ancienne en sera informée par email.

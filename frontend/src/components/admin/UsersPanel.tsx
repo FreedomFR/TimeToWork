@@ -2,12 +2,11 @@ import { useCallback, useEffect, useState } from "react";
 import { api } from "../../api/client";
 import { AdminUser, Role } from "../../api/types";
 import { useAuth } from "../../context/AuthContext";
+import { ROLE_LABELS } from "../../utils/constants";
 import { apiErrorMessage } from "../../utils/errors";
 import { useDebounced } from "../../hooks/useDebounced";
 import Modal from "../ui/Modal";
 import { CARD_CLASS, INPUT_CLASS, PRIMARY_BUTTON_CLASS } from "../ui/styles";
-
-const ROLE_LABELS: Record<Role, string> = { ADMIN: "Administrateur", USER: "Utilisateur" };
 
 /** A pending role change waiting for the admin's confirmation. */
 interface Change {
