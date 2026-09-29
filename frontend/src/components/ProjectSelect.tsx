@@ -43,7 +43,7 @@ export default function ProjectSelect({ projects, value, onChange }: Props) {
       </button>
 
       {open && (
-        <div className="absolute z-20 mt-1 w-64 bg-surface border border-border rounded shadow-lg max-h-64 overflow-y-auto">
+        <div className="absolute z-20 mt-1 w-64 animate-pop-in bg-surface border border-border rounded shadow-lg max-h-64 overflow-y-auto">
           <button
             onClick={() => {
               onChange(null);

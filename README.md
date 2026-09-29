@@ -38,6 +38,7 @@ Crée un compte depuis l'écran d'inscription, puis crée tes projets/clients et
 - Administration : rôle admin (donné ou retiré depuis l'appli), journal de l'application filtrable par personne et par type de bug
 - Sauvegardes automatiques de la base (dossier `backups/`, fréquence et rotation réglables, restauration en une commande, copie optionnelle vers un autre disque avec `BACKUP_COPY_PATH`)
 - Changement de mot de passe et d'adresse email une fois connecté (page "Mon compte") : le mot de passe actuel est exigé, l'ancienne adresse est prévenue par email
+- Confort visuel (page "Mon compte" > Apparence) : animations activables/désactivables (le réglage "réduire les animations" du système est toujours respecté) et taille du texte en 3 niveaux ; les réglages sont enregistrés sur le compte et suivent la personne sur tous ses appareils
 - Réinitialisation du mot de passe par email ("Mot de passe oublié ?" sur l'écran de connexion)
 
 ## Réinitialisation du mot de passe
@@ -84,7 +85,7 @@ backend/src
   routes/                 un fichier par ressource : auth, projects, clients, tags, timeEntries, reports, admin, logs
   middleware/auth.ts      JWT : requireAuth + signToken
   middleware/admin.ts     requireAdmin (rôle lu en base à chaque requête), requestLog.ts (journal des requêtes)
-  lib/                    prisma, mailer, http (validation zod, 404, filtre de dates), logger (journal), rateLimit, ownership
+  lib/                    prisma, mailer, http (validation zod, 404, filtre de dates), logger (journal), rateLimit, ownership, origins (CORS), preferences (réglages d'affichage par utilisateur)
 
 frontend/src
   pages/                  une page par écran (TimeTracker, Dashboard, Reports, Projects, Clients, Login…)
@@ -145,13 +146,13 @@ Nécessite une instance PostgreSQL locale et un fichier `.env` dans `backend/` a
 
 Le projet a deux suites de tests, à lancer après avoir démarré la stack (`docker compose up -d`) :
 
-**Backend (169 tests)** — tests d'intégration (Vitest + Supertest) qui couvrent auth, projets, clients, tags, entrées de temps et rapports, sur une base Postgres de test dédiée (`timetowork_test`, créée et migrée automatiquement) :
+**Backend (186 tests)** — tests d'intégration (Vitest + Supertest) qui couvrent auth, projets, clients, tags, entrées de temps et rapports, sur une base Postgres de test dédiée (`timetowork_test`, créée et migrée automatiquement) :
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.test.yml run --rm backend-test
 ```
 
-**End-to-end (99 tests)** — Playwright, qui pilote un vrai navigateur contre l'application complète (inscription, connexion, minuteur, saisie manuelle, tags, projets/clients, édition en ligne, calendrier, tableau de bord, rapports, export, administration, mot de passe oublié, mode DEV) :
+**End-to-end (109 tests)** — Playwright, qui pilote un vrai navigateur contre l'application complète (inscription, connexion, minuteur, saisie manuelle, tags, projets/clients, édition en ligne, calendrier, tableau de bord, rapports, export, administration, mot de passe oublié, apparence, mode DEV) :
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.test.yml build frontend-test

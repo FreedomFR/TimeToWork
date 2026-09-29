@@ -102,7 +102,7 @@ export default function PeriodPicker({
         </button>
 
         {open && (
-          <div className="absolute z-20 mt-1 left-0 w-56 bg-surface border border-border rounded shadow-lg overflow-hidden">
+          <div className="absolute z-20 mt-1 left-0 w-56 animate-pop-in bg-surface border border-border rounded shadow-lg overflow-hidden">
             {!showCustom ? (
               <>
                 {presets.map((p) => (

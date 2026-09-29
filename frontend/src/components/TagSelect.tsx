@@ -80,7 +80,7 @@ export default function TagSelect({
 
       {open && (
         <div
-          className={`absolute z-20 mt-1 bg-surface border border-border rounded shadow-lg ${
+          className={`absolute z-20 mt-1 animate-pop-in bg-surface border border-border rounded shadow-lg ${
             fullWidth ? "left-0 right-0" : "w-64"
           }`}
         >

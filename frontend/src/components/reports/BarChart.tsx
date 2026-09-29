@@ -49,7 +49,7 @@ export default function BarChart({ days }: Props) {
             <div key={day.date} className="flex-1 max-w-[44px] flex flex-col items-center h-full justify-end group">
               <div
                 title={`${(day.totalSeconds / 3600).toFixed(2)}h`}
-                className="w-full rounded-t overflow-hidden flex flex-col-reverse"
+                className="w-full rounded-t overflow-hidden flex flex-col-reverse origin-bottom animate-grow-y"
                 style={{ height: `${(day.totalSeconds / (maxHours * 3600)) * 100}%`, minHeight: day.totalSeconds > 0 ? 2 : 0 }}
               >
                 {day.segments.map((seg, i) => (

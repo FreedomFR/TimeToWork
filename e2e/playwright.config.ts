@@ -15,6 +15,9 @@ export default defineConfig({
   reporter: [["list"]],
   use: {
     baseURL: process.env.BASE_URL || "http://frontend",
+    // Tests measure positions and click things that would otherwise still be moving (entrance effects).
+    // Animations are covered by tests/appearance.spec.ts, which turns the motion back on.
+    reducedMotion: "reduce",
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
   },

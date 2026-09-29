@@ -45,7 +45,7 @@ export default function MultiSelectFilter({ label, options, value, onChange }: P
       </button>
 
       {open && (
-        <div className="absolute z-20 mt-1 left-0 w-56 bg-surface border border-border rounded shadow-lg overflow-hidden">
+        <div className="absolute z-20 mt-1 left-0 w-56 animate-pop-in bg-surface border border-border rounded shadow-lg overflow-hidden">
           <div className="max-h-64 overflow-y-auto">
             {options.map((opt) => (
               <label

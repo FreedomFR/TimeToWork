@@ -35,7 +35,7 @@ export default function DescriptionFilter({ value, onChange }: Props) {
         <IconChevronDown className="w-3.5 h-3.5 text-muted" />
       </button>
       {open && (
-        <div className="absolute z-20 mt-1 left-0 w-64 bg-surface border border-border rounded shadow-lg p-2">
+        <div className="absolute z-20 mt-1 left-0 w-64 animate-pop-in bg-surface border border-border rounded shadow-lg p-2">
           <input
             autoFocus
             value={draft}

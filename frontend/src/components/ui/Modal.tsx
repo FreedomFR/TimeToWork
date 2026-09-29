@@ -31,14 +31,14 @@ export default function Modal({ title, subtitle, onClose, footer, children, widt
 
   return (
     <div
-      className="fixed inset-0 z-50 flex overflow-y-auto bg-black/60 p-4"
+      className="fixed inset-0 z-50 flex overflow-y-auto bg-black/60 p-4 animate-fade-in"
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
     >
       <div
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className={`w-full ${widthClass} m-auto bg-surface border border-border rounded-lg shadow-xl`}
+        className={`w-full ${widthClass} m-auto bg-surface border border-border rounded-lg shadow-xl animate-dialog-in`}
       >
         <div className="px-5 py-4 border-b border-border flex items-start justify-between gap-4">
           <div>

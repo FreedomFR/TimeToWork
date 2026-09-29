@@ -16,3 +16,54 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
   filter: invert(0.7);
   cursor: pointer;
 }
+
+/* ─── Comfort ────────────────────────────────────────────────────────────────
+ * The user's settings ("Mon compte" > Apparence) reach the page as attributes on <html>,
+ * set by utils/appearance.ts: data-animations="on|off" and data-text-size="normal|large|xlarge".
+ */
+
+/* Colours, borders and presses ease instead of jumping. Utilities that set their own
+ * `transition-*` still win, this is only the default. */
+@layer base {
+  button,
+  a,
+  input,
+  select,
+  textarea,
+  [role="switch"],
+  [role="radio"] {
+    transition-property: color, background-color, border-color, box-shadow, transform, filter, opacity;
+    transition-duration: 150ms;
+    transition-timing-function: ease-out;
+  }
+}
+
+/* Animations off: no transition, no entrance effect. The pages are built so that they look
+ * the same, just without the movement. The second block is the operating system's own
+ * "reduce motion" setting, which is always respected, whatever the user chose here. */
+html[data-animations="off"] *,
+html[data-animations="off"] *::before,
+html[data-animations="off"] *::after {
+  animation: none !important;
+  transition: none !important;
+  scroll-behavior: auto !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Text size: everything is sized in rem, so the whole interface scales with the root size */
+html[data-text-size="large"] {
+  font-size: 112.5%;
+}
+
+html[data-text-size="xlarge"] {
+  font-size: 125%;
+}

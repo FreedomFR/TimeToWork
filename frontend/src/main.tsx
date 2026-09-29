@@ -5,9 +5,11 @@ import App from "./App";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { AuthProvider } from "./context/AuthContext";
 import { installErrorReporting } from "./utils/reportError";
+import { applyCachedAppearance } from "./utils/appearance";
 import "./index.css";
 
 installErrorReporting();
+applyCachedAppearance();
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

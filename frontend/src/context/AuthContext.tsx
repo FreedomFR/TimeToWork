@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { api } from "../api/client";
-import { User } from "../api/types";
+import { Preferences, User } from "../api/types";
+import { applyAppearance, resetAppearance } from "../utils/appearance";
 
 interface AuthContextValue {
   user: User | null;
@@ -11,6 +12,8 @@ interface AuthContextValue {
   logout: () => void;
   /** Re-reads the user from the server (e.g. after their role changed). */
   refreshUser: () => Promise<void>;
+  /** Saves display settings (only the given ones change). Applied at once; put back if the server refuses. */
+  updatePreferences: (patch: Partial<Preferences>) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -36,6 +39,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .finally(() => setLoading(false));
   }, []);
 
+  // The user's display settings follow the user: applied on sign-in, dropped on sign-out.
+  // (While loading, the settings cached by the browser stay in place: no flash on reload.)
+  useEffect(() => {
+    if (loading) return;
+    if (user) applyAppearance(user.preferences);
+    else resetAppearance();
+  }, [user?.preferences, loading]);
+
   async function login(email: string, password: string) {
     const res = await api.post("/auth/login", { email, password });
     localStorage.setItem("token", res.data.token);
@@ -59,6 +70,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(res.data);
   }
 
+  async function updatePreferences(patch: Partial<Preferences>) {
+    if (!user) return;
+    const before = user.preferences;
+    setUser((u) => (u ? { ...u, preferences: { ...u.preferences, ...patch } } : u));
+    try {
+      const res = await api.put("/auth/preferences", patch);
+      setUser((u) => (u ? { ...u, preferences: res.data } : u));
+    } catch (err) {
+      setUser((u) => (u ? { ...u, preferences: before } : u));
+      throw err;
+    }
+  }
+
   function logout() {
     // Tell the server so the sign-out shows up in the admin journal. Best effort: the token is
     // sent explicitly because it is removed right below, and a failure must not block signing out.
@@ -71,7 +95,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, devLogin, logout, refreshUser }}>
+    <AuthContext.Provider value={{ user, loading, login, register, devLogin, logout, refreshUser, updatePreferences }}>
       {children}
     </AuthContext.Provider>
   );

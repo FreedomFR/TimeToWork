@@ -56,7 +56,7 @@ export default function DashboardBarChart({ buckets }: Props) {
                   )}
                   <div
                     title={`${b.label} : ${formatDuration(b.totalSeconds)}`}
-                    className="w-full flex flex-col-reverse overflow-hidden"
+                    className="w-full flex flex-col-reverse overflow-hidden origin-bottom animate-grow-y"
                     style={{ height: `${heightPct}%`, minHeight: b.totalSeconds > 0 ? 2 : 0 }}
                   >
                     {b.segments.map((seg, i) => (

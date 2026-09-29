@@ -56,7 +56,7 @@ export default function DescriptionInput({ value, onChange, onPickSuggestion, re
       />
 
       {showSuggestions && visible.length > 0 && (
-        <div className="absolute z-20 mt-1 left-0 w-96 max-w-[90vw] bg-surface border border-border rounded shadow-lg overflow-hidden">
+        <div className="absolute z-20 mt-1 left-0 w-96 max-w-[90vw] animate-pop-in bg-surface border border-border rounded shadow-lg overflow-hidden">
           <div className="px-3 py-1.5 text-xs text-muted border-b border-border">Tâches récentes</div>
           {visible.map((s) => (
             <button

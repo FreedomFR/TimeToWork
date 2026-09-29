@@ -75,9 +75,19 @@ Si aucun serveur email n'est configuré (`SMTP_HOST` vide), aucun email ne part 
 docker compose logs backend
 ```
 
-### Mon compte : changer son email ou son mot de passe
+### Mon compte : apparence, email et mot de passe
 
-Le lien « Mon compte » du menu affiche votre nom et votre email, et permet de changer l'un comme l'autre.
+Le lien « Mon compte » du menu affiche votre nom et votre email, règle l'apparence de l'application et permet de changer l'email comme le mot de passe.
+
+**Apparence.** Deux réglages de confort, sans bouton « Enregistrer » : chaque choix s'applique tout de suite (« Réglage enregistré » s'affiche brièvement) et est **enregistré sur votre compte**. Vous le retrouvez donc sur tous vos appareils et navigateurs, et il n'affecte personne d'autre. À la déconnexion, l'écran de connexion reprend l'apparence par défaut.
+
+![Réglages d'apparence](screenshots/appearance.png)
+
+- **Animations** (activées par défaut) : fondu à chaque changement de page, fenêtres et menus qui apparaissent en douceur, barres et anneaux des graphiques qui se dessinent, bouton du minuteur qui pulse tant qu'il tourne, léger retour au clic. Désactivées, tout s'affiche instantanément, sans transition.
+  Si votre système d'exploitation demande de **réduire les animations** (Windows : *Paramètres > Accessibilité > Effets visuels* ; macOS : *Réduire les animations*), elles restent désactivées quel que soit ce réglage, et la page le signale.
+- **Taille du texte** : *Normale*, *Grande* (+12,5 %) ou *Très grande* (+25 %). Toute l'interface s'agrandit, pas seulement le texte.
+
+Le commutateur « Animations » s'utilise aussi au clavier : Tab jusqu'à lui, puis Espace ou Entrée.
 
 **Changer l'adresse email.** Saisissez le nouvel email **deux fois** (une faute de frappe vous empêcherait ensuite de réinitialiser votre mot de passe), puis votre **mot de passe actuel** : l'email sert à se connecter et à recevoir les liens de réinitialisation, donc celui ou celle qui le contrôle contrôle le compte. Une fois validé :
 

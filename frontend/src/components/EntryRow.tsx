@@ -88,7 +88,7 @@ export default function EntryRow({
   });
 
   return (
-    <div className="border-b border-border last:border-b-0">
+    <div className="border-b border-border last:border-b-0 animate-fade-in">
       <EntrySummaryRow
         description={entry.description}
         project={entry.project}

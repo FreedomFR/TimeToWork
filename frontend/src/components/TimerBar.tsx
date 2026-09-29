@@ -157,8 +157,8 @@ export default function TimerBar({
           <button
             onClick={handleToggleTimer}
             disabled={busy}
-            className={`flex items-center gap-2 px-5 py-2 rounded text-sm font-medium text-white transition-colors disabled:opacity-60 ${
-              running ? "bg-red-500 hover:bg-red-600" : "bg-accent hover:bg-accentDark"
+            className={`flex items-center gap-2 px-5 py-2 rounded text-sm font-medium text-white transition active:scale-95 disabled:opacity-60 ${
+              running ? "bg-red-500 hover:bg-red-600 animate-pulse-ring" : "bg-accent hover:bg-accentDark"
             }`}
           >
             {running ? <IconStop className="w-3.5 h-3.5" /> : <IconPlay className="w-3.5 h-3.5" />}

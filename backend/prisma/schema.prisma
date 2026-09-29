@@ -19,6 +19,7 @@ model User {
   password            String
   name                String
   role                Role        @default(USER)
+  preferences         Json        @default("{}")
   resetTokenHash      String?     @unique
   resetTokenExpiresAt DateTime?
   createdAt           DateTime    @default(now())

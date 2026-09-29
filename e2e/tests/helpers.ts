@@ -70,8 +70,9 @@ export async function apiCall(method: string, url: string, token?: string, body?
   return res.status === 204 ? null : res.json();
 }
 
-/** Deletes every time entry, project, client and tag of the account. */
+/** Deletes every time entry, project, client and tag of the account, and puts its display settings back to the defaults. */
 export async function resetAccountData(token: string) {
+  await apiCall("PUT", "/auth/preferences", token, { animations: true, textSize: "normal" });
   // Entries first: they reference projects and tags
   for (const collection of ["time-entries", "projects", "clients", "tags"]) {
     const items: { id: string }[] = await apiCall("GET", `/${collection}`, token);

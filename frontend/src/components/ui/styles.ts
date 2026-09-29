@@ -12,7 +12,7 @@ export const INLINE_INPUT_CLASS =
   "bg-surfaceAlt border-none rounded px-2 py-1.5 text-sm text-gray-200 placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent";
 
 /** Primary blue action button (size classes are added by the caller). */
-export const PRIMARY_BUTTON_CLASS = "bg-accent hover:bg-accentDark text-white font-medium rounded transition-colors";
+export const PRIMARY_BUTTON_CLASS = "bg-accent hover:bg-accentDark text-white font-medium rounded transition active:scale-95";
 
 /** Card container used for every panel of the app. */
 export const CARD_CLASS = "bg-surface rounded-lg border border-border";

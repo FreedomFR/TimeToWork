@@ -6,14 +6,23 @@ interface Props {
   disabled?: boolean;
 }
 
-/** Labelled on/off switch. The whole label is clickable. */
+/** Labelled on/off switch (`role="switch"`). The whole label is clickable, and Space / Enter toggle it. */
 export default function ToggleSwitch({ checked, onChange, label, disabled = false }: Props) {
   return (
     <label
-      className={`flex items-center gap-2 text-sm select-none ${
+      role="switch"
+      aria-checked={checked}
+      aria-disabled={disabled}
+      tabIndex={disabled ? -1 : 0}
+      className={`flex items-center gap-2 text-sm select-none rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
         disabled ? "text-muted/50 cursor-not-allowed" : "text-muted cursor-pointer"
       }`}
       onClick={() => !disabled && onChange?.(!checked)}
+      onKeyDown={(e) => {
+        if (disabled || (e.key !== " " && e.key !== "Enter")) return;
+        e.preventDefault();
+        onChange?.(!checked);
+      }}
     >
       <span className={`w-9 h-5 rounded-full relative transition-colors ${checked ? "bg-accent" : "bg-surfaceAlt"}`}>
         <span

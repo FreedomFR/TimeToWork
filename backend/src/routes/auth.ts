@@ -23,6 +23,7 @@ import {
   resetPasswordLimiter,
 } from "../lib/rateLimit";
 import { nameField, newPasswordField } from "../lib/schemas";
+import { preferencesUpdateSchema, readPreferences } from "../lib/preferences";
 
 const APP_URL = process.env.APP_URL || "http://localhost:8080";
 const RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
@@ -45,13 +46,15 @@ function hashToken(token: string) {
   return crypto.createHash("sha256").update(token).digest("hex");
 }
 
+type UserRow = { id: string; email: string; name: string; role: Role; preferences: Prisma.JsonValue };
+
 /** The user fields that are safe to send to the client (never the password hash). */
-function publicUser(user: { id: string; email: string; name: string; role: Role }) {
-  return { id: user.id, email: user.email, name: user.name, role: user.role };
+function publicUser(user: UserRow) {
+  return { id: user.id, email: user.email, name: user.name, role: user.role, preferences: readPreferences(user.preferences) };
 }
 
 /** Standard `{ token, user }` payload returned by every login-like endpoint. */
-function session(user: { id: string; email: string; name: string; role: Role }) {
+function session(user: UserRow) {
   return { token: signToken(user.id), user: publicUser(user) };
 }
 
@@ -140,6 +143,18 @@ router.get("/me", requireAuth, async (req: AuthRequest, res) => {
   const user = await prisma.user.findUnique({ where: { id: req.userId! } });
   if (!user) return notFound(res, "User not found");
   res.json(publicUser(user));
+});
+
+// Display settings of the signed-in user. Partial: only the sent settings change, the others are kept.
+router.put("/preferences", requireAuth, async (req: AuthRequest, res) => {
+  const data = parseBody(preferencesUpdateSchema, req.body, res);
+  if (!data) return;
+
+  const user = await prisma.user.findUnique({ where: { id: req.userId! } });
+  if (!user) return notFound(res, "User not found");
+  const preferences = { ...readPreferences(user.preferences), ...data };
+  await prisma.user.update({ where: { id: user.id }, data: { preferences } });
+  res.json(preferences);
 });
 
 const changePasswordSchema = z.object({

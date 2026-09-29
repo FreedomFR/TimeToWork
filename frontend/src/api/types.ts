@@ -1,11 +1,20 @@
 /** Shapes of the JSON returned by the backend API. */
 export type Role = "USER" | "ADMIN";
 
+export type TextSize = "normal" | "large" | "xlarge";
+
+/** Display settings of a user, kept on the server (see utils/appearance.ts). */
+export interface Preferences {
+  animations: boolean;
+  textSize: TextSize;
+}
+
 export interface User {
   id: string;
   email: string;
   name: string;
   role: Role;
+  preferences: Preferences;
 }
 
 export interface Client {

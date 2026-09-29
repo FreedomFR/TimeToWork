@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import { formatDuration } from "../../utils/time";
 
 interface Segment {
@@ -44,6 +45,8 @@ export default function DonutChart({ segments, totalSeconds, size = 220 }: Props
             strokeWidth={strokeWidth}
             strokeDasharray={`${a.dash} ${circumference - a.dash}`}
             strokeDashoffset={a.offset}
+            className="animate-draw-arc"
+            style={{ "--arc-length": circumference - a.dash } as CSSProperties}
             transform={`rotate(-90 ${center} ${center})`}
           />
         ))}

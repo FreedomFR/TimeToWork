@@ -1,9 +1,10 @@
 import { useAuth } from "../context/AuthContext";
 import ChangeEmailForm from "../components/account/ChangeEmailForm";
 import ChangePasswordForm from "../components/account/ChangePasswordForm";
+import AppearanceForm from "../components/account/AppearanceForm";
 import { CARD_CLASS } from "../components/ui/styles";
 
-/** "Mon compte": the signed-in user's profile, and the forms to change their email and password. */
+/** "Mon compte": the signed-in user's profile, their display settings, and the forms to change their email and password. */
 export default function Account() {
   const { user } = useAuth();
 
@@ -20,6 +21,7 @@ export default function Account() {
         </dl>
       </div>
 
+      <AppearanceForm />
       <ChangeEmailForm />
       <ChangePasswordForm />
     </div>

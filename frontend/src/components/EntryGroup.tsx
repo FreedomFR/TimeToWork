@@ -56,7 +56,7 @@ export default function EntryGroup({
   }
 
   return (
-    <div className="border-b border-border last:border-b-0">
+    <div className="border-b border-border last:border-b-0 animate-fade-in">
       <EntrySummaryRow
         count={entries.length}
         description={first.description}
