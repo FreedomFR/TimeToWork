@@ -39,6 +39,8 @@ Crée un compte depuis l'écran d'inscription, puis crée tes projets/clients et
 - Sauvegardes automatiques de la base (dossier `backups/`, fréquence et rotation réglables, restauration en une commande, copie optionnelle vers un autre disque avec `BACKUP_COPY_PATH`)
 - Changement de mot de passe et d'adresse email une fois connecté (page "Mon compte") : le mot de passe actuel est exigé, l'ancienne adresse est prévenue par email
 - Confort visuel (page "Mon compte" > Apparence) : animations activables/désactivables (le réglage "réduire les animations" du système est toujours respecté) et taille du texte en 3 niveaux ; les réglages sont enregistrés sur le compte et suivent la personne sur tous ses appareils
+- Message "Veuillez patienter" (horloge animée) quand le serveur met plus d'une demi-seconde à répondre ; il ne bloque pas la page et n'apparaît jamais pour les réponses rapides
+- Ajout d'une entrée manuelle instantané côté écran : le formulaire se vide tout de suite (même si le serveur est lent) et retrouve ses valeurs si l'enregistrement est refusé
 - Réinitialisation du mot de passe par email ("Mot de passe oublié ?" sur l'écran de connexion)
 
 ## Réinitialisation du mot de passe
@@ -146,13 +148,13 @@ Nécessite une instance PostgreSQL locale et un fichier `.env` dans `backend/` a
 
 Le projet a deux suites de tests, à lancer après avoir démarré la stack (`docker compose up -d`) :
 
-**Backend (186 tests)** — tests d'intégration (Vitest + Supertest) qui couvrent auth, projets, clients, tags, entrées de temps et rapports, sur une base Postgres de test dédiée (`timetowork_test`, créée et migrée automatiquement) :
+**Backend (189 tests)** — tests d'intégration (Vitest + Supertest) qui couvrent auth, projets, clients, tags, entrées de temps et rapports, sur une base Postgres de test dédiée (`timetowork_test`, créée et migrée automatiquement) :
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.test.yml run --rm backend-test
 ```
 
-**End-to-end (111 tests)** — Playwright, qui pilote un vrai navigateur contre l'application complète (inscription, connexion, minuteur, saisie manuelle, tags, projets/clients, édition en ligne, calendrier, tableau de bord, rapports, export, administration, mot de passe oublié, apparence, mode DEV) :
+**End-to-end (119 tests)** — Playwright, qui pilote un vrai navigateur contre l'application complète (inscription, connexion, minuteur, saisie manuelle, tags, projets/clients, édition en ligne, calendrier, tableau de bord, rapports, export, administration, mot de passe oublié, apparence, mode DEV) :
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.test.yml build frontend-test

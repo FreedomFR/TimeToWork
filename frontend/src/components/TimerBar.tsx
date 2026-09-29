@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { NewEntryPayload, Project, Tag, TimeEntry } from "../api/types";
 import {
   combineDateTime,
@@ -55,6 +55,9 @@ export default function TimerBar({
 }: Props) {
   const [mode, setMode] = useState<Mode>("manual");
   const [description, setDescription] = useState("");
+  // The latest description, readable from an async handler that was created before it changed
+  const descriptionRef = useRef("");
+  descriptionRef.current = description;
   const [projectId, setProjectId] = useState<string | null>(null);
   const [tagIds, setTagIds] = useState<string[]>([]);
   const [billable, setBillable] = useState(false);
@@ -108,21 +111,40 @@ export default function TimerBar({
     }
   }
 
+  /**
+   * Adds the entry and empties the form at once, without waiting for the server: with a slow answer,
+   * whatever is typed for the next entry in the meantime must not be wiped when it arrives.
+   * If the server refuses, the fields come back (unless something new was already typed).
+   */
   async function handleAddManual() {
+    const payload = {
+      description,
+      projectId,
+      tagIds,
+      billable,
+      start: combineDateTime(date, startTime),
+      end: combineDateTime(date, endTime),
+    };
+    const previous = { description, projectId, tagIds, billable, date, startTime, endTime };
+
     setBusy(true);
+    resetFields();
+    setDate(todayStr());
+    setStartTime(nowTimeStr());
+    setEndTime(nowTimeStr());
     try {
-      await onCreateManual({
-        description,
-        projectId,
-        tagIds,
-        billable,
-        start: combineDateTime(date, startTime),
-        end: combineDateTime(date, endTime),
-      });
-      resetFields();
-      setDate(todayStr());
-      setStartTime(nowTimeStr());
-      setEndTime(nowTimeStr());
+      await onCreateManual(payload);
+    } catch (err) {
+      if (descriptionRef.current === "") {
+        setDescription(previous.description);
+        setProjectId(previous.projectId);
+        setTagIds(previous.tagIds);
+        setBillable(previous.billable);
+        setDate(previous.date);
+        setStartTime(previous.startTime);
+        setEndTime(previous.endTime);
+      }
+      throw err;
     } finally {
       setBusy(false);
     }

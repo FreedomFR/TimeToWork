@@ -150,11 +150,17 @@ router.put("/preferences", requireAuth, async (req: AuthRequest, res) => {
   const data = parseBody(preferencesUpdateSchema, req.body, res);
   if (!data) return;
 
-  const user = await prisma.user.findUnique({ where: { id: req.userId! } });
-  if (!user) return notFound(res, "User not found");
-  const preferences = { ...readPreferences(user.preferences), ...data };
-  await prisma.user.update({ where: { id: user.id }, data: { preferences } });
-  res.json(preferences);
+  // Merged by the database in one statement, not read-then-written here: two settings saved at the
+  // same moment (two switches clicked one after the other) would otherwise overwrite each other.
+  // Stored settings that are not an object (a damaged row) are replaced rather than extended.
+  const rows = await prisma.$queryRaw<{ preferences: Prisma.JsonValue }[]>`
+    UPDATE "User"
+    SET "preferences" = (CASE WHEN jsonb_typeof("preferences") = 'object' THEN "preferences" ELSE '{}'::jsonb END)
+                        || ${JSON.stringify(data)}::jsonb
+    WHERE "id" = ${req.userId!}
+    RETURNING "preferences"`;
+  if (rows.length === 0) return notFound(res, "User not found");
+  res.json(readPreferences(rows[0].preferences));
 });
 
 const changePasswordSchema = z.object({

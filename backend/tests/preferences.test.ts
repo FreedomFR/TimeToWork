@@ -103,3 +103,26 @@ describe("preferences: bad stored data never locks anybody out", () => {
     expect((await request(app).post("/api/auth/login").send({ email: user.email, password: "password123" })).status).toBe(200);
   });
 });
+
+describe("preferences: simultaneous saves", () => {
+  it("keeps every setting when several are saved at the same moment", async () => {
+    // The two switches of the page clicked one right after the other: two requests in flight together
+    for (let round = 0; round < 8; round++) {
+      const { token } = await registerUser();
+      await Promise.all([save(token, { animations: false }), save(token, { textSize: "xlarge" })]);
+      expect((await authed(token).get("/api/auth/me")).body.preferences).toEqual({ animations: false, textSize: "xlarge" });
+    }
+  });
+
+  it("can save over stored settings that are not an object", async () => {
+    const { user, token } = await registerUser();
+    await prisma.user.update({ where: { id: user.id }, data: { preferences: [1, 2, 3] } });
+    expect((await save(token, { textSize: "large" })).body).toEqual({ animations: true, textSize: "large" });
+  });
+
+  it("answers 404 for a token whose user no longer exists", async () => {
+    const { user, token } = await registerUser();
+    await prisma.user.delete({ where: { id: user.id } });
+    expect((await save(token, { animations: false })).status).toBe(404);
+  });
+});

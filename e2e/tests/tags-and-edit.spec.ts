@@ -17,6 +17,8 @@ async function addManualEntry(
   await endInput.fill(end);
   await endInput.blur();
   await page.getByRole("button", { name: "AJOUTER" }).click();
+  // The form empties once the entry is saved: typing the next one before that would be wiped
+  await expect(page.getByPlaceholder("Sur quoi avez-vous travaillé ?")).toHaveValue("");
 }
 
 test("creates a tag on the fly, attaches it to an entry, and marks it billable", async ({ page }) => {

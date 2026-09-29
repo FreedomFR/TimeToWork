@@ -285,6 +285,18 @@ test("documentation screenshots", async ({ page }) => {
   await page.getByRole("region", { name: "Apparence" }).screenshot({ path: `${OUT}/appearance.png` });
   await page.setViewportSize({ width: 1440, height: 900 });
 
+  // ── "Veuillez patienter": the server is made slow on purpose, and the screenshot is taken while waiting ──
+  await page.route("**/api/projects", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+    await route.continue().catch(() => {});
+  });
+  await page.getByRole("link", { name: "Projets" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Veuillez patienter" })).toBeVisible();
+  await page.waitForTimeout(400); // the message has faded in
+  await page.screenshot({ path: `${OUT}/slow-request.png` });
+  await expect(page.getByPlaceholder("Nom du projet").last()).toBeVisible();
+  await page.unroute("**/api/projects");
+
   // ── Administration (another demo account, promoted the way the first admin is) ──
   const alex = await demoAccount("Alex Admin", "alex");
   await makeAdmin(alex.id);

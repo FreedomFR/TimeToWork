@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import ErrorBoundary from "./components/ErrorBoundary";
+import SlowRequestNotice from "./components/ui/SlowRequestNotice";
 import { AuthProvider } from "./context/AuthContext";
 import { installErrorReporting } from "./utils/reportError";
 import { applyCachedAppearance } from "./utils/appearance";
@@ -17,6 +18,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
       <BrowserRouter>
         <AuthProvider>
           <App />
+          <SlowRequestNotice />
         </AuthProvider>
       </BrowserRouter>
     </ErrorBoundary>

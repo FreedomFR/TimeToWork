@@ -15,6 +15,8 @@ const sizeButton = (page: Page, label: string) => page.getByRole("radio", { name
 /** CSS `animation-name` of an element: "none" when animations are off, the effect's name when on. */
 const animationOf = (page: Page, selector: string) =>
   page.locator(selector).first().evaluate((el) => getComputedStyle(el).animationName);
+/** The "Réglage enregistré" line of the Apparence card (the page can have other status messages, e.g. "Veuillez patienter"). */
+const savedNotice = (page: Page) => page.getByRole("region", { name: "Apparence" }).getByRole("status");
 const rootFontSize = (page: Page) => html(page).evaluate((el) => getComputedStyle(el).fontSize);
 const tokenOf = (page: Page) => page.evaluate(() => localStorage.getItem("token") as string);
 
@@ -43,7 +45,7 @@ test("animations: pages fade in, and turning them off stops it at once", async (
 
   await openAppearance(page);
   await animationsSwitch(page).click();
-  await expect(page.getByRole("status")).toHaveText("Réglage enregistré");
+  await expect(savedNotice(page)).toHaveText("Réglage enregistré");
   await expect(animationsSwitch(page)).toHaveAttribute("aria-checked", "false");
   await expect(html(page)).toHaveAttribute("data-animations", "off");
 
@@ -106,7 +108,7 @@ test("the settings are saved on the account, not just in the browser", async ({ 
   await animationsSwitch(page).click();
   await sizeButton(page, "Grande").click();
   await expect(html(page)).toHaveAttribute("data-text-size", "large");
-  await expect(page.getByRole("status")).toHaveText("Réglage enregistré");
+  await expect(savedNotice(page)).toHaveText("Réglage enregistré");
 
   // What the server holds is what another browser would get
   const me = await apiCall("GET", "/auth/me", await tokenOf(page));
@@ -125,7 +127,7 @@ test("signing out drops the settings, and they come back at the next sign-in", a
   await sizeButton(page, "Très grande").click();
   await animationsSwitch(page).click();
   await expect(html(page)).toHaveAttribute("data-text-size", "xlarge");
-  await expect(page.getByRole("status")).toHaveText("Réglage enregistré");
+  await expect(savedNotice(page)).toHaveText("Réglage enregistré");
 
   await page.getByRole("button", { name: "Déconnexion" }).click();
   await expect(page.locator("#login-email")).toBeVisible();

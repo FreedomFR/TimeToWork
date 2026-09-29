@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, ReactNode } from "react";
 import { api } from "../api/client";
 import { Preferences, User } from "../api/types";
 import { applyAppearance, resetAppearance } from "../utils/appearance";
@@ -25,6 +25,7 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const lastSave = useRef(0); // number of the latest display-settings save (see updatePreferences)
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -72,13 +73,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function updatePreferences(patch: Partial<Preferences>) {
     if (!user) return;
-    const before = user.preferences;
+    const saveNumber = ++lastSave.current;
     setUser((u) => (u ? { ...u, preferences: { ...u.preferences, ...patch } } : u));
     try {
       const res = await api.put("/auth/preferences", patch);
-      setUser((u) => (u ? { ...u, preferences: res.data } : u));
+      // Only the last save has the last word: an older answer must not undo a newer choice
+      if (saveNumber === lastSave.current) setUser((u) => (u ? { ...u, preferences: res.data } : u));
     } catch (err) {
-      setUser((u) => (u ? { ...u, preferences: before } : u));
+      // Put back what the server really holds (some of the other quick saves may have worked)
+      if (saveNumber === lastSave.current) await refreshUser().catch(() => {});
       throw err;
     }
   }
