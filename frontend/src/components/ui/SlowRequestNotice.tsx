@@ -1,33 +1,32 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { usePendingRequests } from "../../api/pending";
 
-/** A request must last this long before the message appears: fast ones never flash it. */
-const SHOW_AFTER_MS = 500;
-/** Once shown, it stays at least this long, so it does not blink when the answer comes just after. */
-const MIN_VISIBLE_MS = 600;
-
 /**
- * "Veuillez patienter": a message in the middle of the page while the server is slow to answer.
- * It does not block anything (clicks go through). The clock's hand turns unless animations are off.
+ * "Veuillez patienter": a message in the middle of the page for as long as the app is waiting for
+ * the server, gone as soon as the data is on screen. It does not block anything (clicks go through)
+ * and fades in, so a very fast answer only makes it flicker faintly. The clock's hand turns unless
+ * animations are off.
  */
 export default function SlowRequestNotice() {
   const busy = usePendingRequests() > 0;
-  const [visible, setVisible] = useState(false);
-  const shownAt = useRef(0);
+  const [visible, setVisible] = useState(busy);
 
   useEffect(() => {
-    if (busy && !visible) {
-      const timer = setTimeout(() => {
-        shownAt.current = Date.now();
-        setVisible(true);
-      }, SHOW_AFTER_MS);
-      return () => clearTimeout(timer);
+    if (busy) {
+      setVisible(true);
+      return;
     }
-    if (!busy && visible) {
-      const timer = setTimeout(() => setVisible(false), Math.max(0, MIN_VISIBLE_MS - (Date.now() - shownAt.current)));
-      return () => clearTimeout(timer);
-    }
-  }, [busy, visible]);
+    // The answer that ended the wait is turned into screen content in the next render or two:
+    // hiding after two frames means the message goes when the data appears, not just before.
+    let second = 0;
+    const first = requestAnimationFrame(() => {
+      second = requestAnimationFrame(() => setVisible(false));
+    });
+    return () => {
+      cancelAnimationFrame(first);
+      cancelAnimationFrame(second);
+    };
+  }, [busy]);
 
   if (!visible) return null;
 
@@ -48,7 +47,7 @@ export default function SlowRequestNotice() {
         </svg>
         <div>
           <p className="text-lg text-gray-100">Veuillez patienter</p>
-          <p className="text-sm text-muted">Cela prend un peu plus de temps que prévu…</p>
+          <p className="text-sm text-muted">Chargement en cours…</p>
         </div>
       </div>
     </div>

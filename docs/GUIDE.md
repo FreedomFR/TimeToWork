@@ -433,7 +433,7 @@ La base actuelle est **d'abord copiée** dans `backups/pre-restore_….dump` (ja
 | **Je ne reçois pas l'email de réinitialisation** | Vérifiez la configuration `SMTP_*` du `.env`. Sans SMTP, le lien est dans `docker compose logs backend`. |
 | **Impossible d'ouvrir http://localhost:8080** | Vérifiez que les conteneurs tournent (`docker compose ps`). Les ports ne sont accessibles que depuis votre machine. |
 | **Le service `backup` est « unhealthy »** | Aucune sauvegarde récente : regardez `docker compose logs backup` (base arrêtée ? disque plein ? dossier `backups/` non accessible ?). Une sauvegarde manuelle : `docker compose run --rm backup once`. |
-| **Un message « Veuillez patienter » s'affiche au milieu de la page** | Le serveur met plus d'une demi-seconde à répondre (base chargée, machine occupée, gros rapport). Le message ne bloque rien et disparaît tout seul dès que les données arrivent. S'il reste affiché, regardez `docker compose logs backend` et `docker compose ps`. |
+| **Un message « Veuillez patienter » s'affiche au milieu de la page** | L'application attend une réponse du serveur : le message reste tant que les données ne sont pas affichées, puis disparaît tout seul (avec un serveur rapide, on ne fait que l'apercevoir). Il ne bloque rien. S'il reste affiché longtemps, le serveur est lent ou arrêté : regardez `docker compose logs backend` et `docker compose ps`. |
 | **Une page affiche « Une erreur est survenue »** | L'incident est signalé dans le journal (type « Erreur navigateur ») ; rechargez la page. |
 
 ![Le message d'attente](screenshots/slow-request.png)

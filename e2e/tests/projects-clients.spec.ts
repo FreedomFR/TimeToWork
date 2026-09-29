@@ -32,6 +32,7 @@ test("deleting a client clears it from projects that referenced it", async ({ pa
   await page.getByRole("link", { name: "Clients" }).click();
   await page.getByPlaceholder("Nom du client").fill("Temp Client");
   await page.getByRole("button", { name: "+ Ajouter" }).click();
+  await expect(page.getByText("Temp Client", { exact: true }).first()).toBeVisible(); // created before leaving the page
 
   await page.getByRole("link", { name: "Projets" }).click();
   await page.getByPlaceholder("Nom du projet").fill("Linked Project");

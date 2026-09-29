@@ -39,7 +39,7 @@ Crée un compte depuis l'écran d'inscription, puis crée tes projets/clients et
 - Sauvegardes automatiques de la base (dossier `backups/`, fréquence et rotation réglables, restauration en une commande, copie optionnelle vers un autre disque avec `BACKUP_COPY_PATH`)
 - Changement de mot de passe et d'adresse email une fois connecté (page "Mon compte") : le mot de passe actuel est exigé, l'ancienne adresse est prévenue par email
 - Confort visuel (page "Mon compte" > Apparence) : animations activables/désactivables (le réglage "réduire les animations" du système est toujours respecté) et taille du texte en 3 niveaux ; les réglages sont enregistrés sur le compte et suivent la personne sur tous ses appareils
-- Message "Veuillez patienter" (horloge animée) quand le serveur met plus d'une demi-seconde à répondre ; il ne bloque pas la page et n'apparaît jamais pour les réponses rapides
+- Message "Veuillez patienter" (horloge animée) affiché tant que l'application attend le serveur, et qui disparaît dès que les données sont à l'écran ; il ne bloque pas la page
 - Ajout d'une entrée manuelle instantané côté écran : le formulaire se vide tout de suite (même si le serveur est lent) et retrouve ses valeurs si l'enregistrement est refusé
 - Réinitialisation du mot de passe par email ("Mot de passe oublié ?" sur l'écran de connexion)
 

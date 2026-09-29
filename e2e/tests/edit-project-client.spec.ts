@@ -7,6 +7,7 @@ test("edits a project's name, color and client inline", async ({ page }) => {
   await page.getByRole("link", { name: "Clients" }).click();
   await page.getByPlaceholder("Nom du client").fill("Nouveau client");
   await page.getByRole("button", { name: "+ Ajouter" }).click();
+  await expect(page.getByText("Nouveau client", { exact: true }).first()).toBeVisible(); // created before leaving the page
 
   await page.getByRole("link", { name: "Projets" }).click();
   await page.getByPlaceholder("Nom du projet").fill("Projet brouillon");

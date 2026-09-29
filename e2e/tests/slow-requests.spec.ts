@@ -2,8 +2,8 @@ import { test, expect, Page } from "@playwright/test";
 import { apiCall, registerAndLogin } from "./helpers";
 
 /**
- * "Veuillez patienter": when the server is slow to answer, a message appears in the middle of the page;
- * fast answers never show it. The requests are slowed down here by holding them back in the browser.
+ * "Veuillez patienter": a message in the middle of the page for as long as the app waits for the server,
+ * gone as soon as the data is displayed. The requests are slowed down here by holding them back in the browser.
  */
 test.use({ reducedMotion: "no-preference" }); // the clock's hand turns, unless animations are off
 
@@ -17,26 +17,33 @@ async function slowDown(page: Page, pattern: string, ms: number) {
   });
 }
 
-test("a slow answer shows the message, which goes away once the data is there", async ({ page }) => {
+async function tokenOf(page: Page): Promise<string> {
+  return page.evaluate(() => localStorage.getItem("token") as string);
+}
+
+test("the message is there as soon as the wait begins, and gone once the data is displayed", async ({ page }) => {
   await registerAndLogin(page);
+  await apiCall("POST", "/projects", await tokenOf(page), { name: "Projet chargé", color: "#2f7dfa" });
   await slowDown(page, "**/api/projects", 2000);
 
   await page.getByRole("link", { name: "Projets" }).click();
-  await expect(notice(page)).toBeVisible({ timeout: 1500 });
-  await expect(notice(page)).toContainText("plus de temps que prévu");
+  await expect(notice(page)).toBeVisible({ timeout: 700 }); // no waiting period: it is there right away
+  await expect(notice(page)).toContainText("Chargement en cours");
+  await expect(page.getByText("Projet chargé")).toHaveCount(0); // ...while there is nothing to show yet
 
-  await expect(page.getByRole("heading", { name: "Projets" })).toBeVisible();
-  await expect(notice(page)).toBeHidden({ timeout: 5000 });
+  await expect(page.getByText("Projet chargé")).toBeVisible({ timeout: 5000 });
+  await expect(notice(page)).toBeHidden({ timeout: 1000 }); // the data is on screen: the message leaves
 });
 
-test("a fast answer never shows it", async ({ page }) => {
+test("even a fast answer shows it, briefly, and it does not stay", async ({ page }) => {
   await registerAndLogin(page);
-  await slowDown(page, "**/api/projects", 150);
+  await apiCall("POST", "/projects", await tokenOf(page), { name: "Projet rapide", color: "#2f7dfa" });
+  await slowDown(page, "**/api/projects", 300);
 
   await page.getByRole("link", { name: "Projets" }).click();
-  await expect(page.getByRole("heading", { name: "Projets" })).toBeVisible();
-  await page.waitForTimeout(1200); // longer than the delay before the message would have appeared
-  await expect(notice(page)).toHaveCount(0);
+  await expect(notice(page)).toBeVisible({ timeout: 700 });
+  await expect(page.getByText("Projet rapide")).toBeVisible();
+  await expect(notice(page)).toBeHidden({ timeout: 1000 });
 });
 
 test("it does not block the page: the user can carry on while waiting", async ({ page }) => {

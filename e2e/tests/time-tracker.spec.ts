@@ -72,6 +72,7 @@ test("offers recent task suggestions that prefill description and project", asyn
   await page.getByRole("link", { name: "Projets" }).click();
   await page.getByPlaceholder("Nom du projet").fill("Site web client");
   await page.getByRole("button", { name: "+ Ajouter" }).click();
+  await expect(page.getByText("Site web client", { exact: true }).first()).toBeVisible(); // created before leaving the page
 
   await page.getByRole("link", { name: "Suivi du temps" }).click();
   await page.getByPlaceholder("Sur quoi avez-vous travaillé ?").fill("Maquette page accueil");

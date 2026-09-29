@@ -27,6 +27,7 @@ test("reports UI: shows the résumé tab with chart, filters and grouped table",
   await page.getByRole("link", { name: "Projets" }).click();
   await page.getByPlaceholder("Nom du projet").fill("Refonte site");
   await page.getByRole("button", { name: "+ Ajouter" }).click();
+  await expect(page.getByText("Refonte site", { exact: true }).first()).toBeVisible(); // created before leaving the page
 
   await page.getByRole("link", { name: "Suivi du temps" }).click();
   await addManualEntry(page, "Intégration", "0800", "1000");
@@ -53,6 +54,7 @@ test("reports UI: filtering by project narrows the total and table", async ({ pa
   await page.getByRole("link", { name: "Projets" }).click();
   await page.getByPlaceholder("Nom du projet").fill("Client A");
   await page.getByRole("button", { name: "+ Ajouter" }).click();
+  await expect(page.getByText("Client A", { exact: true }).first()).toBeVisible(); // created before leaving the page
 
   await page.getByRole("link", { name: "Suivi du temps" }).click();
   await addManualEntry(page, "Sans projet", "0800", "0900");
