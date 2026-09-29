@@ -16,7 +16,8 @@ async function addManualEntry(page: Page, description: string, start: string, en
   await endInput.fill(end);
   await endInput.blur();
   await page.getByRole("button", { name: "AJOUTER" }).click();
-  await expect(page.getByPlaceholder("Sur quoi avez-vous travaillé ?")).toHaveValue("");
+  // The form empties at once: the entry is saved only when it shows in the list (a page change before that would lose it)
+  await expect(page.getByText(description, { exact: true }).first()).toBeVisible();
 }
 
 async function openCalendar(page: Page) {
@@ -82,6 +83,41 @@ test("overlapping entries are placed side by side", async ({ page }) => {
   expect(first.x + first.width).toBeLessThanOrEqual(second.x + 1);
   // A non-overlapping entry keeps the full column width
   expect(alone.width).toBeCloseTo(first.width * 2, 0);
+});
+
+test("an entry that starts when another ends goes below it, not beside it", async ({ page }) => {
+  await registerAndLogin(page);
+  // 10 minutes, then the next one right after: no overlap in time
+  await addManualEntry(page, "Court", "1400", "1410");
+  await addManualEntry(page, "Suite", "1410", "1500");
+  await openCalendar(page);
+
+  const short = await box(page, "Court");
+  const next = await box(page, "Suite");
+
+  // Same column, same width: one under the other
+  expect(next.x).toBeCloseTo(short.x, 0);
+  expect(next.width).toBeCloseTo(short.width, 0);
+  // Proportional: 10 min = 10 px, and the next block starts right where it ends
+  expect(short.height).toBeCloseTo(10, 0);
+  expect(next.y - short.y).toBeCloseTo(10, 0);
+  expect(short.y + short.height).toBeLessThanOrEqual(next.y + 0.5);
+});
+
+test("a very short entry is drawn taller to stay clickable, but never over the next one", async ({ page }) => {
+  await registerAndLogin(page);
+  await addManualEntry(page, "Éclair", "1000", "1005"); // nothing after it: room for the minimum height
+  await addManualEntry(page, "Serré", "1200", "1205"); // only 12 minutes before the next entry
+  await addManualEntry(page, "Voisin", "1212", "1300");
+  await openCalendar(page);
+
+  expect((await box(page, "Éclair")).height).toBeCloseTo(16, 0);
+
+  const tight = await box(page, "Serré");
+  const neighbour = await box(page, "Voisin");
+  expect(tight.height).toBeCloseTo(12, 0); // would be 16 px, held back at the 12 px of free room
+  expect(tight.y + tight.height).toBeLessThanOrEqual(neighbour.y + 0.5);
+  expect(neighbour.x).toBeCloseTo(tight.x, 0); // still one under the other
 });
 
 test("the block shows the project and its color", async ({ page }) => {

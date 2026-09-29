@@ -16,7 +16,8 @@ async function addManualEntry(page: Page, description: string, start: string, en
   await endInput.fill(end);
   await endInput.blur();
   await page.getByRole("button", { name: "AJOUTER" }).click();
-  await expect(page.getByPlaceholder("Sur quoi avez-vous travaillé ?")).toHaveValue("");
+  // The form empties at once: the entry is saved only when it shows in the list (a page change before that would lose it)
+  await expect(page.getByText(description, { exact: true }).first()).toBeVisible();
 }
 
 async function openDashboard(page: Page) {

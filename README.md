@@ -154,7 +154,7 @@ Le projet a deux suites de tests, à lancer après avoir démarré la stack (`do
 docker compose -f docker-compose.yml -f docker-compose.test.yml run --rm backend-test
 ```
 
-**End-to-end (119 tests)** — Playwright, qui pilote un vrai navigateur contre l'application complète (inscription, connexion, minuteur, saisie manuelle, tags, projets/clients, édition en ligne, calendrier, tableau de bord, rapports, export, administration, mot de passe oublié, apparence, mode DEV) :
+**End-to-end (121 tests)** — Playwright, qui pilote un vrai navigateur contre l'application complète (inscription, connexion, minuteur, saisie manuelle, tags, projets/clients, édition en ligne, calendrier, tableau de bord, rapports, export, administration, mot de passe oublié, apparence, mode DEV) :
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.test.yml build frontend-test

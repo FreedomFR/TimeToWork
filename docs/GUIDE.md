@@ -169,7 +169,8 @@ Vos entrées dessinées sur une grille horaire : chacune est placée à son **he
 - **Semaine / Jour** : le bouton en haut à gauche change de vue ; les flèches ‹ › avancent d'une semaine ou d'un jour.
 - **− / +** (en haut à gauche de la grille) zooment de 30 à 120 pixels par heure.
 - Chaque colonne indique son **total** ; les week-ends sont plus sombres ; une ligne rouge marque l'heure actuelle sur la journée du jour.
-- Deux entrées qui se chevauchent sont placées côte à côte.
+- Deux entrées qui se chevauchent vraiment dans le temps sont placées côte à côte. Une entrée qui commence à l'instant où une autre se termine (14:10 → 14:10) se place **en dessous**, pas à côté.
+- Une entrée très courte est dessinée un peu plus haute que sa durée pour rester lisible et cliquable (16 px au minimum), mais seulement s'il y a de la place : elle ne recouvre jamais l'entrée suivante. Le bouton **+** agrandit l'échelle des heures.
 
 ![Calendrier, vue jour](screenshots/calendar-day.png)
 

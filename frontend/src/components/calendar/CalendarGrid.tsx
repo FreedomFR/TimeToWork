@@ -22,6 +22,8 @@ const HOURS = Array.from({ length: 24 }, (_, h) => h);
 const AXIS_WIDTH = 56;
 /** Hour shown at the top when the day has no entry. */
 const DEFAULT_TOP_HOUR = 8;
+/** Shortest a block is drawn (px), room permitting. */
+const MIN_BLOCK_HEIGHT = 16;
 /** Below these block heights (px) the project line / bottom-right duration are dropped. */
 const MIN_HEIGHT_FOR_PROJECT = 56;
 const MIN_HEIGHT_FOR_FOOTER_DURATION = 40;
@@ -42,10 +44,15 @@ function EventBlock({
   hourHeight: number;
   onSelect: (entry: TimeEntry) => void;
 }) {
-  const { entry, startMin, endMin, column, columns } = event;
+  const { entry, startMin, endMin, column, columns, freeUntilMin } = event;
   const color = entry.project?.color || NEUTRAL_COLOR;
   const seconds = durationSeconds(entry.start, entry.end);
-  const height = Math.max(((endMin - startMin) / 60) * hourHeight, 16);
+  // Proportional to the duration; a very short entry is drawn taller so it stays readable and clickable,
+  // but only into free space: it never covers the entry that follows it
+  const height = Math.max(
+    ((endMin - startMin) / 60) * hourHeight,
+    Math.min(MIN_BLOCK_HEIGHT, ((freeUntilMin - startMin) / 60) * hourHeight)
+  );
   const description = entry.description || NO_DESCRIPTION_LABEL;
   const projectLine = entry.project
     ? `${entry.project.name}${entry.project.client ? ` - ${entry.project.client.name}` : ""}`

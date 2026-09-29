@@ -7,9 +7,6 @@ import { dateStrOf, durationSeconds, toDateStr } from "./time";
 
 export const MINUTES_PER_DAY = 24 * 60;
 
-/** Entries shorter than this are laid out as if they lasted this long, so they stay clickable and don't hide neighbours. */
-const MIN_VISUAL_MINUTES = 15;
-
 /** An entry positioned inside one day column. Times are minutes since local midnight. */
 export interface CalendarEvent {
   entry: TimeEntry;
@@ -20,6 +17,12 @@ export interface CalendarEvent {
   column: number;
   /** Number of sub-columns of its overlap cluster: the event is `1 / columns` wide. */
   columns: number;
+  /**
+   * Until when the space below the event is free: the start of the next event that sits at the same
+   * place horizontally (24:00 if none). A very short entry may be drawn taller than its duration so
+   * it stays clickable, but never further than this, so it does not cover what follows.
+   */
+  freeUntilMin: number;
 }
 
 /** One day of the calendar with its events and total. */
@@ -40,21 +43,23 @@ function minutesSinceMidnight(iso: string): number {
  * Lays out the entries of one day. Entries that overlap in time are grouped in a
  * "cluster" and placed side by side: each one takes the first free sub-column, and
  * every event of a cluster gets the cluster's column count so widths line up.
+ * Only real overlaps count: an entry that starts exactly when another ends goes below it.
  */
 export function layoutDayEvents(entries: TimeEntry[]): CalendarEvent[] {
   const events: CalendarEvent[] = entries
     .map((entry) => {
       const startMin = minutesSinceMidnight(entry.start);
       const endMin = Math.min(MINUTES_PER_DAY, startMin + durationSeconds(entry.start, entry.end) / 60);
-      return { entry, startMin, endMin, column: 0, columns: 1 };
+      return { entry, startMin, endMin, column: 0, columns: 1, freeUntilMin: MINUTES_PER_DAY };
     })
     // Earliest first; for equal starts the longest first, so it takes the left-most column
     .sort((a, b) => a.startMin - b.startMin || b.endMin - a.endMin);
 
-  const visualEnd = (e: CalendarEvent) => Math.max(e.endMin, e.startMin + MIN_VISUAL_MINUTES);
+  // (a zero-length entry still takes a sliver of time, so two of them at the same moment sit side by side)
+  const visualEnd = (e: CalendarEvent) => Math.max(e.endMin, e.startMin + 0.01);
 
   let cluster: CalendarEvent[] = [];
-  let columnEnds: number[] = []; // visual end of the last event of each sub-column
+  let columnEnds: number[] = []; // end of the last event of each sub-column
   let clusterEnd = -1;
 
   const closeCluster = () => {
@@ -75,6 +80,17 @@ export function layoutDayEvents(entries: TimeEntry[]): CalendarEvent[] {
     clusterEnd = Math.max(clusterEnd, visualEnd(event));
   }
   closeCluster();
+
+  // Free room below each event: up to the next event that shares some of its width
+  const span = (e: CalendarEvent) => [e.column / e.columns, (e.column + 1) / e.columns] as const;
+  for (const event of events) {
+    const [from, to] = span(event);
+    for (const other of events) {
+      if (other === event || other.startMin < event.endMin || other.startMin >= event.freeUntilMin) continue;
+      const [otherFrom, otherTo] = span(other);
+      if (otherFrom < to && otherTo > from) event.freeUntilMin = other.startMin;
+    }
+  }
 
   return events;
 }

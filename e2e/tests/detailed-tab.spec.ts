@@ -17,8 +17,8 @@ async function addManualEntry(
   await endInput.fill(end);
   await endInput.blur();
   await page.getByRole("button", { name: "AJOUTER" }).click();
-  // The form empties once the entry is saved: typing the next one before that would be wiped
-  await expect(page.getByPlaceholder("Sur quoi avez-vous travaillé ?")).toHaveValue("");
+  // The form empties at once: the entry is saved only when it shows in the list (a page change before that would lose it)
+  await expect(page.getByText(description, { exact: true }).first()).toBeVisible();
 }
 
 test("detailed tab lists individual entries with user, time and duration columns", async ({ page }) => {

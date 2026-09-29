@@ -15,6 +15,7 @@ export default function AppearanceForm() {
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
   const savedTimer = useRef<number>();
+  const inFlight = useRef(0); // saves started and not finished yet
   useEffect(() => () => window.clearTimeout(savedTimer.current), []);
 
   if (!user) return null;
@@ -23,13 +24,19 @@ export default function AppearanceForm() {
   async function save(patch: { animations?: boolean; textSize?: TextSize }) {
     setError("");
     setSaved(false);
+    inFlight.current += 1;
     try {
       await updatePreferences(patch);
-      setSaved(true);
-      window.clearTimeout(savedTimer.current);
-      savedTimer.current = window.setTimeout(() => setSaved(false), 2500);
+      // "Enregistré" only once every save that was started has finished, not when the first one does
+      if (inFlight.current === 1) {
+        setSaved(true);
+        window.clearTimeout(savedTimer.current);
+        savedTimer.current = window.setTimeout(() => setSaved(false), 2500);
+      }
     } catch (err) {
       setError(apiErrorMessage(err, "Impossible d'enregistrer ce réglage"));
+    } finally {
+      inFlight.current -= 1;
     }
   }
 
