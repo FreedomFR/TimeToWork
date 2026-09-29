@@ -52,6 +52,8 @@ En passant `DEV_MODE=true` dans `.env`, l'écran de connexion affiche la liste d
 
 ⚠️ À réserver strictement à un environnement local/dev — n'active jamais `DEV_MODE` sur une instance accessible par quelqu'un d'autre que toi, cela permet de se connecter à n'importe quel compte.
 
+Les routes `/dev/*` ne répondent qu'au site TimeToWork lui-même (voir « Origines (CORS) » ci-dessous) : une autre page web ne peut pas les appeler depuis votre navigateur. Elles restent ouvertes à tout programme qui tourne sur votre machine ; désactivez `DEV_MODE` dès que vous n'en avez plus besoin.
+
 ## Administration
 
 Un compte peut avoir le rôle **administrateur**. Le lien « Administration » apparaît alors dans le menu (les autres utilisateurs ne le voient pas, et le serveur répond 403 à leurs appels).
@@ -110,6 +112,7 @@ Mesures en place (chacune a un test de non-régression, voir `backend/tests/secu
 - **Validation des entrées** : dates, longueurs, couleurs `#rrggbb`, fin ≥ début ; corps JSON limité à 100 Ko.
 - **Robustesse** : une erreur (base de données…) dans une route renvoie un 500 générique au lieu de faire tomber le serveur, sans fuite de détails.
 - **En-têtes** : `helmet` côté API ; côté site, CSP (`script-src 'self'`), `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy`.
+- **Origines (CORS)** : seul le site TimeToWork (`APP_URL`, et son jumeau `localhost` / `127.0.0.1`) peut appeler l'API depuis un navigateur ; toute autre origine reçoit un 403, tracé dans le journal. Sans cela, une page web quelconque ouverte dans votre navigateur pourrait interroger le backend qui tourne sur votre machine (et, avec `DEV_MODE`, s'y connecter sans mot de passe). Autres sites autorisés : `CORS_ORIGINS` (liste séparée par des virgules).
 - **Exports** : les cellules CSV commençant par `=`, `+`, `-`, `@` sont neutralisées (injection de formules Excel).
 - **Réseau** : les ports 5432, 4000 et 8080 ne sont exposés que sur `127.0.0.1`. Ils étaient auparavant accessibles à tout le réseau, base de données comprise.
 
@@ -142,7 +145,7 @@ Nécessite une instance PostgreSQL locale et un fichier `.env` dans `backend/` a
 
 Le projet a deux suites de tests, à lancer après avoir démarré la stack (`docker compose up -d`) :
 
-**Backend (163 tests)** — tests d'intégration (Vitest + Supertest) qui couvrent auth, projets, clients, tags, entrées de temps et rapports, sur une base Postgres de test dédiée (`timetowork_test`, créée et migrée automatiquement) :
+**Backend (169 tests)** — tests d'intégration (Vitest + Supertest) qui couvrent auth, projets, clients, tags, entrées de temps et rapports, sur une base Postgres de test dédiée (`timetowork_test`, créée et migrée automatiquement) :
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.test.yml run --rm backend-test

@@ -275,3 +275,65 @@ describe("security: rate limiting", () => {
     expect((await change("current-password")).status).toBe(429);
   });
 });
+
+describe("security: only the frontend may call the API from a browser", () => {
+  const FRONTEND = "http://localhost:8080"; // APP_URL of the test environment
+  const EVIL = "https://evil.example";
+
+  it("answers the frontend, and only the frontend, with CORS headers", async () => {
+    const ok = await request(app).get("/api/health").set("Origin", FRONTEND);
+    expect(ok.status).toBe(200);
+    expect(ok.headers["access-control-allow-origin"]).toBe(FRONTEND);
+
+    const foreign = await request(app).get("/api/health").set("Origin", EVIL);
+    expect(foreign.status).toBe(403);
+    expect(foreign.headers["access-control-allow-origin"]).toBeUndefined();
+  });
+
+  it("does not let a foreign page pass the CORS preflight", async () => {
+    const res = await request(app)
+      .options("/api/auth/login")
+      .set("Origin", EVIL)
+      .set("Access-Control-Request-Method", "POST");
+    expect(res.headers["access-control-allow-origin"]).toBeUndefined();
+  });
+
+  it("accepts the same app opened as 127.0.0.1, but not another port or host", async () => {
+    expect((await request(app).get("/api/health").set("Origin", "http://127.0.0.1:8080")).status).toBe(200);
+    expect((await request(app).get("/api/health").set("Origin", "http://localhost:9999")).status).toBe(403);
+    expect((await request(app).get("/api/health").set("Origin", "http://localhost.evil.example:8080")).status).toBe(403);
+  });
+
+  it("accepts the extra origins of CORS_ORIGINS", async () => {
+    vi.stubEnv("CORS_ORIGINS", "https://time.example.org, https://other.example.org");
+    try {
+      expect((await request(app).get("/api/health").set("Origin", "https://time.example.org")).status).toBe(200);
+      expect((await request(app).get("/api/health").set("Origin", "https://other.example.org")).status).toBe(200);
+      expect((await request(app).get("/api/health").set("Origin", EVIL)).status).toBe(403);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("does not require an Origin header (curl, servers, the tests themselves)", async () => {
+    expect((await request(app).get("/api/health")).status).toBe(200);
+  });
+
+  it("keeps a foreign page away from the passwordless DEV_MODE login", async () => {
+    const { user } = await registerUser();
+    vi.stubEnv("DEV_MODE", "true");
+    try {
+      // From the frontend it works (that is what DEV_MODE is for)...
+      const ok = await request(app).post("/api/auth/dev/login").set("Origin", FRONTEND).send({ userId: user.id });
+      expect(ok.status).toBe(200);
+      // ...from any other website it is refused before reaching the route
+      const list = await request(app).get("/api/auth/dev/users").set("Origin", EVIL);
+      expect(list.status).toBe(403);
+      const login = await request(app).post("/api/auth/dev/login").set("Origin", EVIL).send({ userId: user.id });
+      expect(login.status).toBe(403);
+      expect(login.body.token).toBeUndefined();
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+});

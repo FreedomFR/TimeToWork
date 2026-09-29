@@ -16,6 +16,7 @@ import adminRoutes from "./routes/admin";
 import logRoutes from "./routes/logs";
 import { AuthRequest } from "./middleware/auth";
 import { requestLog } from "./middleware/requestLog";
+import { isAllowedOrigin, rejectForeignOrigins } from "./lib/origins";
 import { clientInfo, logEvent } from "./lib/logger";
 
 export const app = express();
@@ -29,13 +30,15 @@ if (process.env.TRUST_PROXY) {
   app.set("trust proxy", /^\d+$/.test(value) ? Number(value) : value === "true" ? true : value);
 }
 
-// Authentication uses a Bearer token in a header (no cookies), so cross-origin requests
-// cannot ride on a victim's session; open CORS is therefore acceptable here.
-app.use(cors());
+// Only the frontend may call the API from a browser (see lib/origins.ts). The token travels in a
+// header, not a cookie, so a foreign page cannot ride on a session; but it could still reach an
+// unauthenticated route (DEV_MODE login) of a backend running on the visitor's own machine.
+app.use(cors({ origin: (origin, done) => done(null, isAllowedOrigin(origin)) }));
 // Standard security headers, and no "X-Powered-By: Express" banner
 app.use(helmet());
 app.use(express.json({ limit: "100kb" }));
 app.use(requestLog);
+app.use(rejectForeignOrigins);
 
 app.get("/api/health", (_req, res) => res.json({ status: "ok" }));
 

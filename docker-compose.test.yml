@@ -15,6 +15,11 @@ services:
       PORT: 4000
     command: sh -c "apk add --no-cache openssl >/dev/null && npm install && npx prisma generate && npm test"
 
+  # The E2E browser opens the test frontend under this name, so the (real) backend must accept it
+  backend:
+    environment:
+      CORS_ORIGINS: http://frontend-test
+
   # A frontend build whose API calls target the backend by its internal
   # Docker network hostname, so it also works from a browser running inside
   # another container (the production build instead targets localhost,
