@@ -100,14 +100,14 @@ frontend/src
                           dashboard (calculs), grouping (liste par semaine/jour), export, xlsx, constants
   api/                    client axios et types des réponses de l'API
 
-backup/                   sauvegardes de la base : backup.sh (sauvegarde, rotation, restauration) et test.sh
+backup/                   sauvegardes de la base : backup.sh (sauvegarde, rotation, restauration) et test.sh (branche `dev`)
 ```
 
 Principe : les calculs (durées, regroupements, totaux) vivent dans `utils/` en fonctions pures ; les pages ne gèrent que l'état et l'enchaînement des appels API ; les composants ne font que de l'affichage.
 
 ## Sécurité
 
-Mesures en place (chacune a un test de non-régression, voir `backend/tests/security.test.ts` et `e2e/tests/security.spec.ts`) :
+Mesures en place (chacune a un test de non-régression, voir sur la branche `dev` : `backend/tests/security.test.ts` et `e2e/tests/security.spec.ts`) :
 
 - **Isolation des données** : chaque ligne appartient à un utilisateur ; on ne peut ni lire, ni modifier, ni **référencer** le projet, le client ou la balise d'un autre (réponse 400 identique qu'il existe ou non).
 - **Authentification** : mots de passe hachés (bcrypt), 8 à 72 caractères ; jetons JWT limités à HS256 ; jeton de réinitialisation aléatoire, stocké haché, valable 1 h, à usage unique ; un changement de mot de passe annule le lien en attente ; durée de réponse identique que l'email existe ou non.
@@ -145,6 +145,8 @@ npm run dev
 Nécessite une instance PostgreSQL locale et un fichier `.env` dans `backend/` avec `DATABASE_URL` et `JWT_SECRET`.
 
 ## Tests
+
+> **Les tests ne sont pas sur la branche `main`** (version stable) : ils vivent sur la branche `dev` (`git checkout dev`), où se font les modifications. Les commandes ci-dessous sont à lancer depuis `dev`.
 
 Le projet a deux suites de tests, à lancer après avoir démarré la stack (`docker compose up -d`) :
 

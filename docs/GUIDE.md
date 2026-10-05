@@ -419,7 +419,7 @@ La base actuelle est **d'abord copiée** dans `backups/pre-restore_….dump` (ja
 
 - Les sauvegardes contiennent **toutes les données** : mots de passe hachés, adresses email, journal. Le dossier `backups/` est exclu de git ; gardez-le privé et ne le partagez pas.
 - Elles ne sont **pas chiffrées** et se trouvent sur le même disque que la base : elles protègent d'une erreur de manipulation, d'un volume Docker supprimé ou d'une mise à jour ratée, pas d'une panne du disque, sauf si vous avez activé la copie sur un autre disque (`BACKUP_COPY_PATH`, ci-dessus). Si ce dossier est dans le cloud, sachez que les fichiers y partent en clair.
-- Le service a ses propres tests (`docker compose run --rm --entrypoint /bin/sh backup /scripts/test.sh`) : sauvegarde, restauration, rotation, échecs et contrôle de santé, sur des bases jetables.
+- Le service a ses propres tests (sur la branche `dev` : `docker compose run --rm --entrypoint /bin/sh backup /scripts/test.sh`) : sauvegarde, restauration, rotation, échecs et contrôle de santé, sur des bases jetables.
 
 
 ---
@@ -442,6 +442,8 @@ La base actuelle est **d'abord copiée** dans `backups/pre-restore_….dump` (ja
 
 ### Lancer les tests
 
+Les tests ne sont pas sur la branche `main` (version stable) : passez sur la branche `dev` (`git checkout dev`) pour les lancer.
+
 ```bash
 # Backend (base de test dédiée)
 docker compose -f docker-compose.yml -f docker-compose.test.yml run --rm backend-test
@@ -453,6 +455,8 @@ docker compose -f docker-compose.yml -f docker-compose.test.yml run --rm e2e
 ```
 
 ### Régénérer les captures
+
+Le script de captures n'est pas sur la branche `main` : lancez-le depuis la branche `dev`.
 
 Les images de ce guide sont produites par un script qui crée des comptes de démonstration (préfixe `e2e_docs_`, supprimés par le script de nettoyage des tests) et parcourt chaque écran. À relancer quand l'interface change :
 
