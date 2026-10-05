@@ -180,3 +180,18 @@ docker compose run --rm --entrypoint /bin/sh backup /scripts/test.sh
 ```
 
 **Après toute modification du code**, relance ces deux suites pour vérifier qu'aucune fonctionnalité existante n'a régressé avant d'ajouter la suivante.
+
+## Branches
+
+- **`main`** : la version stable, sans les tests. C'est celle qu'on déploie.
+- **`dev`** : la branche de travail, avec les tests. Toute modification s'y fait et s'y vérifie (suites ci-dessus) avant d'arriver sur `main`.
+
+Une fois `dev` vérifiée, on la met sur `main` avec le script de promotion, depuis `dev` (rien de non commité) :
+
+```bash
+./scripts/promote-to-main.sh   # fusionne dev dans main, en laissant de côté les fichiers de tests
+git push origin main
+git checkout dev
+```
+
+Le script ne pousse rien : il s'arrête avant, pour que vous puissiez regarder le résultat. La liste des fichiers de tests laissés de côté est en tête du script ; à compléter si vous ajoutez des tests dans un autre dossier.
