@@ -282,7 +282,7 @@ Personne n'est administrateur au départ, et l'application ne permet volontairem
 ```bash
 docker run --rm --network timetowork_default \
   -e DATABASE_URL="postgresql://timetowork:timetowork@db:5432/timetowork" \
-  -v "$(pwd)/backend:/app" -w /app node:20-alpine \
+  -v "$(pwd)/backend:/app" -w /app node:22-alpine \
   sh -c "apk add --no-cache openssl >/dev/null && npx tsx scripts/set-admin.ts vous@example.com"
 ```
 
